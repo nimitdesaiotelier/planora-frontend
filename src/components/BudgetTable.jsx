@@ -183,15 +183,7 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
               <td key={m}>{formatCurrency(g.values[m])}</td>
             ))}
             <td>{formatCurrency(rowTotal(g.values))}</td>
-            <td className="action-cell">
-              <button
-                className="ai-btn"
-                onClick={() => onAiAction(summaryRow)}
-                title={`AI Action for ${g.department} (${sectionType})`}
-              >
-                ✨
-              </button>
-            </td>
+            <td className="action-cell" />
           </tr>
           {!isCollapsed &&
             g.items.map((row, idx) => (
@@ -200,7 +192,7 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
                 row={row}
                 columns={budgetColumns}
                 lastUpdated={lastUpdated}
-                showAi={false}
+                showAi
                 rowClassName={`nested-child-row nested-grandchild-row ${idx === g.items.length - 1 ? "nested-child-last" : ""}`}
               />
             ))}
@@ -302,13 +294,16 @@ function BudgetDataRow({ row, columns, lastUpdated, showAi = true, rowClassName 
     <tr className={`data-row ${lastUpdated === row.id ? "highlight-row" : ""} ${rowClassName}`.trim()}>
       {columns.map((col) => (
         <td key={col.id} className={col.tdClassName ?? ""}>
-          {col.id === "ai" && !showAi ? null : null}
+          {col.id === "ai"
+            ? showAi
+              ? (col.renderCell ? col.renderCell(row) : null)
+              : null
+            : null}
           {col.id !== "ai" &&
             col.id !== "treeBlank" &&
             (col.id === "coaCode" && rowClassName
               ? (
                 <span className="nested-child-code">
-                  <span className="nested-child-branch" aria-hidden />
                   {col.renderCell ? col.renderCell(row) : String(col.accessor?.(row) ?? "")}
                 </span>
               )
