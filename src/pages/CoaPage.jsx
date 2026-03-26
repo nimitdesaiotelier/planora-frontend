@@ -150,6 +150,7 @@ export default function CoaPage() {
         accessor: (r) => r.coaCode,
         sortable: true,
         filterable: true,
+        thClassName: "col-label",
         tdClassName: "label-cell coa-code-cell",
       },
       {
@@ -158,6 +159,7 @@ export default function CoaPage() {
         accessor: (r) => r.coaName,
         sortable: true,
         filterable: true,
+        thClassName: "col-label",
         tdClassName: "coa-name-cell",
       },
       {
@@ -166,6 +168,8 @@ export default function CoaPage() {
         accessor: (r) => r.department,
         sortable: true,
         filterable: true,
+        thClassName: "col-dept",
+        tdClassName: "dept-cell",
       },
       {
         id: "lineItemType",
@@ -173,6 +177,8 @@ export default function CoaPage() {
         accessor: (r) => r.lineItemType,
         sortable: true,
         filterable: true,
+        thClassName: "col-type",
+        tdClassName: "type-cell",
         renderCell: (r) => <span className="coa-type-pill">{r.lineItemType}</span>,
       },
       {
