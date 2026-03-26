@@ -38,7 +38,13 @@ function planScopeRowLabel(planScope) {
   return fy ? `${name} · ${fy}` : name;
 }
 
-export default function AiActionModal({ planId, row, planScope, onApply, onClose }) {
+function parseFiscalYear(fy) {
+  if (fy == null || fy === "") return null;
+  const n = Number(fy);
+  return Number.isFinite(n) ? n : null;
+}
+
+export default function AiActionModal({ planId, row, planScope, fiscalYear, onApply, onClose }) {
   const isPlanScope = Boolean(planScope);
   const quickActions = isPlanScope ? PLAN_QUICK_ACTIONS : LINE_ITEM_QUICK_ACTIONS;
   const promptPlaceholder = isPlanScope
@@ -62,7 +68,7 @@ export default function AiActionModal({ planId, row, planScope, onApply, onClose
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState(null); // { raw, parsed, newValues }
+  const [result, setResult] = useState(null); // { raw, parsed, newValues, newDailyDetails }
 
   if (!effectiveRow) return null;
 
@@ -79,11 +85,22 @@ export default function AiActionModal({ planId, row, planScope, onApply, onClose
         text,
         effectiveRow.values,
         planId,
-        effectiveRow.lineKey
+        effectiveRow.lineKey,
+        isPlanScope
+          ? {}
+          : {
+              fiscalYear: parseFiscalYear(fiscalYear),
+              lineItemType: effectiveRow.type ?? null,
+              dailyDetails:
+                effectiveRow.dailyDetails && Object.keys(effectiveRow.dailyDetails).length > 0
+                  ? effectiveRow.dailyDetails
+                  : null,
+            }
       );
       const parsed = normalizeParsedForTransform(raw);
       const newValues = raw.newValues ?? {};
-      setResult({ raw, parsed, newValues });
+      const newDailyDetails = raw.newDailyDetails ?? null;
+      setResult({ raw, parsed, newValues, newDailyDetails });
     } catch (err) {
       setError(err.message || "AI request failed. Configure keys on the server.");
     } finally {
@@ -93,7 +110,11 @@ export default function AiActionModal({ planId, row, planScope, onApply, onClose
 
   function handleApply() {
     if (!result || isPlanScope || effectiveRow.id == null || !onApply) return;
-    onApply(effectiveRow.id, result.newValues, result.parsed.summary);
+    const body =
+      result.newDailyDetails != null
+        ? { values: result.newValues, dailyDetails: result.newDailyDetails }
+        : { values: result.newValues };
+    onApply(effectiveRow.id, body, result.parsed.summary);
   }
 
   const beforeTotal = rowTotal(effectiveRow.values);
@@ -196,6 +217,9 @@ export default function AiActionModal({ planId, row, planScope, onApply, onClose
             </div>
 
             <div className="summary-banner">💬 {result.parsed.summary}</div>
+            {result.parsed.warnings?.length > 0 && (
+              <div className="warning-banner">⚠️ {result.parsed.warnings.join(" ")}</div>
+            )}
 
             {!isPlanScope && (
               <>
