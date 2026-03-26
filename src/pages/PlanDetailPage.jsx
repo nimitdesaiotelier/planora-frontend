@@ -104,7 +104,7 @@ export default function PlanDetailPage() {
           <button
             type="button"
             className="ai-btn ai-btn-header"
-            title="Plan-level AI (same as row ✨)"
+            title="Plan-level Ask AI"
             aria-label="Open AI actions for this plan"
             onClick={() => setAiModal({ kind: "plan" })}
           >
