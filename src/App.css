@@ -876,6 +876,37 @@ body {
   gap: 10px;
 }
 
+/* ===== ASK PLAN MODAL ===== */
+.ask-plan-modal {
+  max-width: 980px;
+}
+
+.ask-plan-result-table-wrap {
+  max-height: 420px;
+  overflow: auto;
+}
+
+.ask-plan-result-table {
+  min-width: 860px;
+}
+
+.ask-plan-result-table th:first-child,
+.ask-plan-result-table td:first-child {
+  text-align: left;
+  min-width: 220px;
+}
+
+.ask-plan-result-table th:nth-child(2),
+.ask-plan-result-table td:nth-child(2),
+.ask-plan-result-table th:nth-child(3),
+.ask-plan-result-table td:nth-child(3) {
+  text-align: left;
+}
+
+.ask-plan-month-table {
+  margin: 8px 0;
+}
+
 /* ===== BUTTONS ===== */
 .btn-primary {
   background: var(--accent);
