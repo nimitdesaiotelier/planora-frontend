@@ -279,16 +279,21 @@ body {
 .budget-table th.col-dept,
 .budget-table th.col-type { text-align: left; min-width: 100px; font-size: 10px; }
 .budget-table th.col-label { text-align: left; min-width: 160px; }
+.budget-table th.col-tree { text-align: center; width: 28px; min-width: 28px; }
 .budget-table th.col-action { text-align: center; width: 50px; }
 .budget-table th.col-total { color: var(--text2); }
 
 .budget-table td {
   padding: 9px 12px;
   text-align: right;
-  border-bottom: 1px solid rgba(42, 49, 72, 0.5);
+  border-bottom: 1px solid var(--border);
   font-size: 13px;
   color: var(--text2);
   white-space: nowrap;
+}
+
+.budget-table tbody tr:last-child td {
+  border-bottom: 1px solid var(--border);
 }
 
 /* Section headers */
@@ -415,6 +420,7 @@ body {
 
 .group-parent-row td {
   background: rgba(108, 99, 255, 0.08);
+  border-bottom: 1px solid rgba(42, 49, 72, 0.5);
 }
 
 .tree-section-parent td {
@@ -427,29 +433,12 @@ body {
 
 .nested-child-row td {
   background: rgba(255, 255, 255, 0.015);
-  border-left: 1px solid rgba(108, 99, 255, 0.14);
+  border-bottom: 1px solid rgba(42, 49, 72, 0.5);
 }
 
 .nested-child-row .coa-code-cell {
   color: var(--text3) !important;
   padding-left: 8px;
-}
-
-.nested-child-row td:first-child {
-  position: relative;
-}
-
-.nested-child-row td:first-child::before {
-  content: "";
-  position: absolute;
-  left: 10px;
-  top: -1px;
-  bottom: -1px;
-  border-left: 1px solid var(--border);
-}
-
-.nested-child-last td:first-child::before {
-  bottom: 50%;
 }
 
 .dept-child-row .department-parent-cell {
@@ -466,6 +455,16 @@ body {
 
 .nested-shift-empty {
   background: transparent !important;
+  text-align: center !important;
+  width: 28px;
+  min-width: 28px;
+  padding: 9px 0 !important;
+  vertical-align: middle;
+  min-height: 38px;
+}
+
+.label-cell.coa-code-cell {
+  min-height: 38px;
 }
 
 .nested-child-label {
@@ -477,31 +476,14 @@ body {
 }
 
 .nested-child-branch {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 10px;
-  border-bottom: 1px solid var(--border);
+  display: none;
 }
 
 .nested-child-code {
   position: relative;
   display: inline-flex;
   align-items: center;
-  padding-left: 18px;
-}
-
-.nested-child-label::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: -18px;
-  bottom: -18px;
-  border-left: 1px solid var(--border);
-}
-
-.nested-child-last .nested-child-label::before {
-  bottom: 50%;
+  padding-left: 14px;
 }
 
 .group-toggle-btn {
