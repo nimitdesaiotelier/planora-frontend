@@ -3,6 +3,7 @@ import AppLayout from "./components/AppLayout";
 import PlansPage from "./pages/PlansPage";
 import PlanDetailPage from "./pages/PlanDetailPage";
 import ActualsPage from "./pages/ActualsPage";
+import CoaPage from "./pages/CoaPage";
 import "./App.css";
 
 export default function App() {
@@ -13,6 +14,7 @@ export default function App() {
           <Route path="/" element={<PlansPage />} />
           <Route path="/plans/:planId" element={<PlanDetailPage />} />
           <Route path="/actuals" element={<ActualsPage />} />
+          <Route path="/coa" element={<CoaPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
