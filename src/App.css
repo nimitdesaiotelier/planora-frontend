@@ -785,6 +785,16 @@ body {
   font-weight: 500;
 }
 
+.warning-banner {
+  margin-top: 10px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text);
+}
+
 /* Before / After */
 .before-after {
   display: flex;
