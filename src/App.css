@@ -142,11 +142,19 @@ body {
 /* ===== PLAN HEADER ===== */
 .plan-header {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
   padding: 20px 28px 16px;
   border-bottom: 1px solid var(--border);
+}
+
+.plan-header-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .plan-filter-row {
@@ -607,6 +615,11 @@ body {
 }
 
 .row-name { color: var(--accent2); }
+
+.plan-ai-title-year {
+  color: var(--text2);
+  font-weight: 600;
+}
 
 .close-btn {
   background: transparent;
