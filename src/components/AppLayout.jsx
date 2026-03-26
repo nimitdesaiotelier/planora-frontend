@@ -15,6 +15,9 @@ export default function AppLayout() {
           <nav className="top-nav">
             <Link to="/">Plans</Link>
             <Link to="/actuals">Actuals</Link>
+            <Link to="/coa" title="Chart of account">
+              COA
+            </Link>
           </nav>
           {/* <div className="tagline">AI runs on the server — set OPENAI_API_KEY / GEMINI_API_KEY</div> */}
         </div>
