@@ -7,6 +7,7 @@ import {
   patchLineItemValues,
 } from "../api/plansApi";
 import AiActionModal from "../components/AiActionModal";
+import AskPlanModal from "../components/AskPlanModal";
 import BudgetTable from "../components/BudgetTable";
 
 const PLAN_TYPE_STYLE = {
@@ -150,7 +151,7 @@ export default function PlanDetailPage() {
         />
       )}
       {aiModal?.kind === "plan" && (
-        <AiActionModal
+        <AskPlanModal
           planId={planId}
           planScope={{
             planName: planMeta?.name ?? `Plan ${planId}`,
