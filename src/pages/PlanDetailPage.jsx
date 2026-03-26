@@ -22,7 +22,7 @@ export default function PlanDetailPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeRow, setActiveRow] = useState(null);
+  const [aiModal, setAiModal] = useState(null); // { kind: 'row', row } | { kind: 'plan' } | null
   const [lastUpdated, setLastUpdated] = useState(null);
   const [activityLog, setActivityLog] = useState([]);
 
@@ -68,7 +68,7 @@ export default function PlanDetailPage() {
       { id: Date.now(), rowId, summary, time: new Date().toLocaleTimeString() },
       ...prev,
     ]);
-    setActiveRow(null);
+    setAiModal(null);
     setTimeout(() => setLastUpdated(null), 3000);
   }
 
@@ -99,10 +99,17 @@ export default function PlanDetailPage() {
             <span className="plan-badge plan-badge-subtle">{planMeta.propertyName}</span>
           )}
         </div>
-        {/* <div className="plan-meta">
-          Click <span className="highlight-text">✨</span> for row-level AI (keys on server:{" "}
-          <code>OPENAI_API_KEY</code> / <code>GEMINI_API_KEY</code>).
-        </div> */}
+        <div className="plan-header-actions">
+          <button
+            type="button"
+            className="ai-btn ai-btn-header"
+            title="Plan-level AI (same as row ✨)"
+            aria-label="Open AI actions for this plan"
+            onClick={() => setAiModal({ kind: "plan" })}
+          >
+            ✨
+          </button>
+        </div>
       </div>
 
       <main className="main-content">
@@ -118,7 +125,7 @@ export default function PlanDetailPage() {
         )}
         {!loading && !error && rows.length > 0 && (
           <>
-            <BudgetTable rows={rows} onAiAction={setActiveRow} lastUpdated={lastUpdated} />
+            <BudgetTable rows={rows} onAiAction={(row) => setAiModal({ kind: "row", row })} lastUpdated={lastUpdated} />
             {activityLog.length > 0 && (
               <div className="activity-log">
                 <div className="activity-title">📋 AI Update History</div>
@@ -134,12 +141,22 @@ export default function PlanDetailPage() {
         )}
       </main>
 
-      {activeRow && (
+      {aiModal?.kind === "row" && (
         <AiActionModal
           planId={planId}
-          row={activeRow}
+          row={aiModal.row}
           onApply={handleApply}
-          onClose={() => setActiveRow(null)}
+          onClose={() => setAiModal(null)}
+        />
+      )}
+      {aiModal?.kind === "plan" && (
+        <AiActionModal
+          planId={planId}
+          planScope={{
+            planName: planMeta?.name ?? `Plan ${planId}`,
+            fiscalYear: planMeta?.fiscalYear ?? "",
+          }}
+          onClose={() => setAiModal(null)}
         />
       )}
     </div>

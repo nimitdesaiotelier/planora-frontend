@@ -3,19 +3,68 @@ import { normalizeParsedForTransform, parseBudgetInstruction } from "../api/aiAp
 import { formatLineAmount, rowTotal } from "../utils/applyTransformation";
 import { MONTHS } from "../data/budgetData";
 
-const QUICK_ACTIONS = [
+const LINE_ITEM_QUICK_ACTIONS = [
   { label: "+5%", prompt: "Increase by 5%" },
   { label: "+10%", prompt: "Increase by 10%" },
   { label: "-$1,000", prompt: "Reduce by $1000" },
   { label: "Copy prior-year budget", prompt: "Set equal to last year budget" },
 ];
 
-export default function AiActionModal({ planId, row, onApply, onClose }) {
+const PLAN_QUICK_ACTIONS = [
+  {
+    label: "Compare with Plan",
+    prompt: "Compare With Budget 2025",
+  },
+  {
+    label: "Compare with Actuals",
+    prompt: "Compare With Actuals of 2024",
+  },
+  {
+    label: "Top 5 Expenses/Revenue",
+    prompt: "Show Top 5 Revenue/Expense",
+  },
+];
+
+function zeroMonthValues() {
+  return Object.fromEntries(MONTHS.map((m) => [m, 0]));
+}
+
+function planScopeRowLabel(planScope) {
+  const name = planScope.planName?.trim() || "Plan";
+  const fy =
+    planScope.fiscalYear != null && planScope.fiscalYear !== ""
+      ? `FY ${planScope.fiscalYear}`
+      : null;
+  return fy ? `${name} · ${fy}` : name;
+}
+
+export default function AiActionModal({ planId, row, planScope, onApply, onClose }) {
+  const isPlanScope = Boolean(planScope);
+  const quickActions = isPlanScope ? PLAN_QUICK_ACTIONS : LINE_ITEM_QUICK_ACTIONS;
+  const promptPlaceholder = isPlanScope
+    ? 'e.g. "Show Rooms Department Revenue"'
+    : 'e.g. "Increase by 12% for Q2"';
+  const effectiveRow =
+    row ??
+    (planScope
+      ? {
+          id: null,
+          category: "Plan",
+          label: planScopeRowLabel(planScope),
+          type: "Revenue",
+          department: "—",
+          lineKey: null,
+          values: zeroMonthValues(),
+        }
+      : null);
+
   const [provider, setProvider] = useState("gemini");
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null); // { raw, parsed, newValues }
+
+  if (!effectiveRow) return null;
 
   async function handleRun(instruction) {
     const text = instruction || prompt.trim();
@@ -26,11 +75,11 @@ export default function AiActionModal({ planId, row, onApply, onClose }) {
     try {
       const raw = await parseBudgetInstruction(
         provider,
-        row.label,
+        effectiveRow.label,
         text,
-        row.values,
+        effectiveRow.values,
         planId,
-        row.lineKey
+        effectiveRow.lineKey
       );
       const parsed = normalizeParsedForTransform(raw);
       const newValues = raw.newValues ?? {};
@@ -43,22 +92,37 @@ export default function AiActionModal({ planId, row, onApply, onClose }) {
   }
 
   function handleApply() {
-    if (result) {
-      onApply(row.id, result.newValues, result.parsed.summary);
-    }
+    if (!result || isPlanScope || effectiveRow.id == null || !onApply) return;
+    onApply(effectiveRow.id, result.newValues, result.parsed.summary);
   }
 
-  const beforeTotal = rowTotal(row.values);
+  const beforeTotal = rowTotal(effectiveRow.values);
   const afterTotal = result ? rowTotal(result.newValues) : null;
   const diff = afterTotal !== null ? afterTotal - beforeTotal : null;
+
+  const titlePlanName = planScope?.planName?.trim() || "Plan";
+  const titleFy =
+    planScope && planScope.fiscalYear != null && planScope.fiscalYear !== ""
+      ? planScope.fiscalYear
+      : null;
 
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-box ai-modal">
         <div className="modal-header">
-          <div className="row-badge">{row.category}</div>
+          <div className="row-badge">{isPlanScope ? "Plan" : row.category}</div>
           <h2>
-            ✨ AI Action — <span className="row-name">{row.label}</span>
+            ✨ AI Action —{" "}
+            {isPlanScope ? (
+              <>
+                <span className="row-name">{titlePlanName}</span>
+                {titleFy != null && (
+                  <span className="plan-ai-title-year">, FY {titleFy}</span>
+                )}
+              </>
+            ) : (
+              <span className="row-name">{row.label}</span>
+            )}
           </h2>
           <button className="close-btn" type="button" onClick={onClose}>
             ✕
@@ -80,14 +144,16 @@ export default function AiActionModal({ planId, row, onApply, onClose }) {
 
         <div className="quick-actions">
           <span className="quick-label">Quick:</span>
-          {QUICK_ACTIONS.map((qa) => (
+          {quickActions.map((qa) => (
             <button
               key={qa.label}
               className="quick-btn"
               type="button"
               onClick={() => {
                 setPrompt(qa.prompt);
-                handleRun(qa.prompt);
+                if (!isPlanScope) {
+                  handleRun(qa.prompt);
+                }
               }}
               disabled={loading}
             >
@@ -99,7 +165,7 @@ export default function AiActionModal({ planId, row, onApply, onClose }) {
         <div className="prompt-area">
           <textarea
             className="prompt-input"
-            placeholder='e.g. "Increase by 12% for Q2"'
+            placeholder={promptPlaceholder}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             rows={2}
@@ -131,66 +197,72 @@ export default function AiActionModal({ planId, row, onApply, onClose }) {
 
             <div className="summary-banner">💬 {result.parsed.summary}</div>
 
-            <div className="before-after">
-              <div className="ba-card before">
-                <div className="ba-label">Before (Annual Total)</div>
-                <div className="ba-value">{formatLineAmount(row, beforeTotal)}</div>
-              </div>
-              <div className="ba-arrow">→</div>
-              <div className="ba-card after">
-                <div className="ba-label">After (Annual Total)</div>
-                <div className="ba-value">{formatLineAmount(row, afterTotal)}</div>
-              </div>
-              <div className={`ba-card diff ${diff >= 0 ? "positive" : "negative"}`}>
-                <div className="ba-label">Change</div>
-                <div className="ba-value">
-                  {diff >= 0 ? "+" : ""}
-                  {formatLineAmount(row, diff)}
+            {!isPlanScope && (
+              <>
+                <div className="before-after">
+                  <div className="ba-card before">
+                    <div className="ba-label">Before (Annual Total)</div>
+                    <div className="ba-value">{formatLineAmount(effectiveRow, beforeTotal)}</div>
+                  </div>
+                  <div className="ba-arrow">→</div>
+                  <div className="ba-card after">
+                    <div className="ba-label">After (Annual Total)</div>
+                    <div className="ba-value">{formatLineAmount(effectiveRow, afterTotal)}</div>
+                  </div>
+                  <div className={`ba-card diff ${diff >= 0 ? "positive" : "negative"}`}>
+                    <div className="ba-label">Change</div>
+                    <div className="ba-value">
+                      {diff >= 0 ? "+" : ""}
+                      {formatLineAmount(effectiveRow, diff)}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <div className="result-section">
-              <div className="result-section-title">Month-by-Month Preview</div>
-              <div className="month-table-wrapper">
-                <table className="month-table">
-                  <thead>
-                    <tr>
-                      <th>Month</th>
-                      <th>Before</th>
-                      <th>After</th>
-                      <th>Δ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {MONTHS.map((m) => {
-                      const before = row.values[m];
-                      const after = result.newValues[m];
-                      const d = after - before;
-                      const changed = d !== 0;
-                      return (
-                        <tr key={m} className={changed ? "changed-row" : ""}>
-                          <td>{m}</td>
-                          <td>{formatLineAmount(row, before)}</td>
-                          <td className={changed ? "after-val" : ""}>{formatLineAmount(row, after)}</td>
-                          <td className={d > 0 ? "pos-delta" : d < 0 ? "neg-delta" : ""}>
-                            {d !== 0 ? `${d > 0 ? "+" : ""}${formatLineAmount(row, d)}` : "—"}
-                          </td>
+                <div className="result-section">
+                  <div className="result-section-title">Month-by-Month Preview</div>
+                  <div className="month-table-wrapper">
+                    <table className="month-table">
+                      <thead>
+                        <tr>
+                          <th>Month</th>
+                          <th>Before</th>
+                          <th>After</th>
+                          <th>Δ</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                      </thead>
+                      <tbody>
+                        {MONTHS.map((m) => {
+                          const before = effectiveRow.values[m];
+                          const after = result.newValues[m] ?? before;
+                          const d = after - before;
+                          const changed = d !== 0;
+                          return (
+                            <tr key={m} className={changed ? "changed-row" : ""}>
+                              <td>{m}</td>
+                              <td>{formatLineAmount(effectiveRow, before)}</td>
+                              <td className={changed ? "after-val" : ""}>{formatLineAmount(effectiveRow, after)}</td>
+                              <td className={d > 0 ? "pos-delta" : d < 0 ? "neg-delta" : ""}>
+                                {d !== 0 ? `${d > 0 ? "+" : ""}${formatLineAmount(effectiveRow, d)}` : "—"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="modal-footer">
               <button className="btn-secondary" type="button" onClick={onClose}>
                 Cancel
               </button>
-              <button className="btn-apply" type="button" onClick={handleApply}>
-                ✅ Apply to Budget
-              </button>
+              {!isPlanScope && (
+                <button className="btn-apply" type="button" onClick={handleApply}>
+                  ✅ Apply to Budget
+                </button>
+              )}
             </div>
           </div>
         )}
