@@ -1,15 +1,44 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { formatCurrency, formatLineAmount, rowTotal } from "../utils/applyTransformation";
 import { MONTHS } from "../data/budgetData";
 import SortFilterThead from "./SortFilterThead";
 import { useTableSortFilter } from "../hooks/useTableSortFilter";
 
-/** Dept + Type + Line label + months + total + AI */
-const EXTRA_COLS = 5;
+/** Tree blank + COA code + COA name + Dept + Account type + months + total + AI */
+const EXTRA_COLS = 7;
 
 export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
+  const [collapsedSections, setCollapsedSections] = useState({});
+  const [collapsedGroups, setCollapsedGroups] = useState({});
   const budgetColumns = useMemo(() => {
     const cols = [
+      {
+        id: "treeBlank",
+        header: "",
+        sortable: false,
+        filterable: false,
+        thClassName: "col-tree",
+        tdClassName: "nested-shift-empty",
+        renderCell: () => null,
+      },
+      {
+        id: "coaCode",
+        header: "COA code",
+        accessor: (r) => r.coaCode ?? r.lineKey ?? "",
+        sortable: true,
+        filterable: true,
+        thClassName: "col-label",
+        tdClassName: "label-cell coa-code-cell",
+      },
+      {
+        id: "coaName",
+        header: "COA name",
+        accessor: (r) => r.coaName ?? r.label ?? "",
+        sortable: true,
+        filterable: true,
+        thClassName: "col-label",
+        tdClassName: "coa-name-cell",
+      },
       {
         id: "department",
         header: "Department",
@@ -21,25 +50,16 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
       },
       {
         id: "type",
-        header: "Type",
+        header: "Account type",
         accessor: (r) => r.type ?? "",
         sortable: true,
         filterable: true,
         thClassName: "col-type",
         tdClassName: "type-cell",
-      },
-      {
-        id: "label",
-        header: "Line item",
-        accessor: (r) => r.label ?? "",
-        sortable: true,
-        filterable: true,
-        thClassName: "col-label",
-        tdClassName: "label-cell",
         renderCell: (r) => (
           <>
             {lastUpdated === r.id && <span className="updated-dot" title="Recently updated by AI" />}
-            {r.label}
+            {r.type}
           </>
         ),
       },
@@ -91,18 +111,141 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
     budgetColumns
   );
 
-  const revenueRows = processedRows.filter((r) => r.type === "Revenue");
   const statRows = processedRows.filter((r) => r.type === "Statistics");
+  const revenueRows = processedRows.filter((r) => r.type === "Revenue");
   const expenseRows = processedRows.filter((r) => r.type === "Expense");
 
   function revenueTotal(month) {
     return revenueRows.reduce((s, r) => s + r.values[month], 0);
+  }
+  function statsTotal(month) {
+    return statRows.reduce((s, r) => s + r.values[month], 0);
   }
   function expenseTotal(month) {
     return expenseRows.reduce((s, r) => s + r.values[month], 0);
   }
   function nopTotal(month) {
     return revenueTotal(month) - expenseTotal(month);
+  }
+
+  function groupByDepartment(sectionRows) {
+    const groups = new Map();
+    sectionRows.forEach((r) => {
+      const dept = r.department?.trim() || "Unassigned";
+      if (!groups.has(dept)) groups.set(dept, []);
+      groups.get(dept).push(r);
+    });
+    return Array.from(groups.entries()).map(([department, items]) => ({
+      department,
+      items,
+      values: MONTHS.reduce((acc, m) => {
+        acc[m] = items.reduce((s, r) => s + (r.values?.[m] ?? 0), 0);
+        return acc;
+      }, {}),
+    }));
+  }
+
+  function renderDepartmentGroups(sectionRows, sectionType) {
+    const groups = groupByDepartment(sectionRows);
+    return groups.map((g) => {
+      const groupKey = `${sectionType}::${g.department}`;
+      const isCollapsed = Boolean(collapsedGroups[groupKey]);
+      const summaryRow = {
+        id: null,
+        coaCode: "",
+        coaName: g.department,
+        department: g.department,
+        type: sectionType,
+        values: g.values,
+      };
+      return (
+        <tbody key={`${sectionType}-${g.department}`}>
+          <tr className="subtotal-row group-parent-row dept-child-row">
+            <td className="label-cell department-parent-cell">
+              <button
+                type="button"
+                className="group-toggle-btn"
+                onClick={() =>
+                  setCollapsedGroups((prev) => ({ ...prev, [groupKey]: !prev[groupKey] }))
+                }
+                aria-expanded={!isCollapsed}
+                aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${g.department} ${sectionType}`}
+              >
+                {isCollapsed ? "▸" : "▾"}
+              </button>
+              {g.department}
+            </td>
+            <td />
+            <td />
+            <td />
+            <td className="type-cell">{sectionType}</td>
+            {MONTHS.map((m) => (
+              <td key={m}>{formatCurrency(g.values[m])}</td>
+            ))}
+            <td>{formatCurrency(rowTotal(g.values))}</td>
+            <td className="action-cell">
+              <button
+                className="ai-btn"
+                onClick={() => onAiAction(summaryRow)}
+                title={`AI Action for ${g.department} (${sectionType})`}
+              >
+                ✨
+              </button>
+            </td>
+          </tr>
+          {!isCollapsed &&
+            g.items.map((row, idx) => (
+              <BudgetDataRow
+                key={row.id}
+                row={row}
+                columns={budgetColumns}
+                lastUpdated={lastUpdated}
+                showAi={false}
+                rowClassName={`nested-child-row nested-grandchild-row ${idx === g.items.length - 1 ? "nested-child-last" : ""}`}
+              />
+            ))}
+        </tbody>
+      );
+    });
+  }
+
+  function renderSection(sectionRows, sectionType, title, totalFn) {
+    const sectionCollapsed = Boolean(collapsedSections[sectionType]);
+    return (
+      <>
+        <tbody>
+          <tr className="section-header tree-section-parent">
+            <td colSpan={fullColSpan}>
+              <button
+                type="button"
+                className="group-toggle-btn section-toggle-btn"
+                onClick={() =>
+                  setCollapsedSections((prev) => ({ ...prev, [sectionType]: !prev[sectionType] }))
+                }
+                aria-expanded={!sectionCollapsed}
+                aria-label={`${sectionCollapsed ? "Expand" : "Collapse"} ${title}`}
+              >
+                {sectionCollapsed ? "▸" : "▾"}
+              </button>
+              {title}
+            </td>
+          </tr>
+        </tbody>
+        {!sectionCollapsed && renderDepartmentGroups(sectionRows, sectionType)}
+        {!sectionCollapsed && (
+          <tbody>
+            <tr className="subtotal-row">
+              <td colSpan={5}>Total {title}</td>
+              {MONTHS.map((m) => (
+                <td key={m}>{formatCurrency(totalFn(m))}</td>
+              ))}
+              <td>{formatCurrency(MONTHS.reduce((s, m) => s + totalFn(m), 0))}</td>
+              <td />
+            </tr>
+          </tbody>
+        )}
+      </>
+    );
   }
 
   const fullColSpan = MONTHS.length + EXTRA_COLS;
@@ -120,54 +263,22 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
             onFilterChange={setFilter}
           />
         </thead>
-        <tbody>
-          {processedRows.length === 0 ? (
+        {processedRows.length === 0 ? (
+          <tbody>
             <tr>
               <td colSpan={fullColSpan} className="table-filter-empty-cell">
                 No rows match your filters. Clear or change the filters above.
               </td>
             </tr>
-          ) : (
-            <>
-              <tr className="section-header">
-                <td colSpan={fullColSpan}>REVENUE</td>
-              </tr>
-              {revenueRows.map((row) => (
-                <BudgetDataRow key={row.id} row={row} columns={budgetColumns} lastUpdated={lastUpdated} />
-              ))}
-              <tr className="subtotal-row">
-                <td colSpan={3}>Total Revenue</td>
-                {MONTHS.map((m) => (
-                  <td key={m}>{formatCurrency(revenueTotal(m))}</td>
-                ))}
-                <td>{formatCurrency(MONTHS.reduce((s, m) => s + revenueTotal(m), 0))}</td>
-                <td />
-              </tr>
-
-              <tr className="section-header">
-                <td colSpan={fullColSpan}>STATISTICS</td>
-              </tr>
-              {statRows.map((row) => (
-                <BudgetDataRow key={row.id} row={row} columns={budgetColumns} lastUpdated={lastUpdated} />
-              ))}
-
-              <tr className="section-header">
-                <td colSpan={fullColSpan}>EXPENSES</td>
-              </tr>
-              {expenseRows.map((row) => (
-                <BudgetDataRow key={row.id} row={row} columns={budgetColumns} lastUpdated={lastUpdated} />
-              ))}
-              <tr className="subtotal-row">
-                <td colSpan={3}>Total Expenses</td>
-                {MONTHS.map((m) => (
-                  <td key={m}>{formatCurrency(expenseTotal(m))}</td>
-                ))}
-                <td>{formatCurrency(MONTHS.reduce((s, m) => s + expenseTotal(m), 0))}</td>
-                <td />
-              </tr>
-
+          </tbody>
+        ) : (
+          <>
+            {renderSection(statRows, "Statistics", "Statistics", statsTotal)}
+            {renderSection(revenueRows, "Revenue", "Revenue", revenueTotal)}
+            {renderSection(expenseRows, "Expense", "Expenses", expenseTotal)}
+            <tbody>
               <tr className="nop-row">
-                <td colSpan={3}>Net Operating Profit</td>
+                <td colSpan={5}>Net Operating Profit</td>
                 {MONTHS.map((m) => (
                   <td key={m} className={nopTotal(m) >= 0 ? "pos" : "neg"}>
                     {formatCurrency(nopTotal(m))}
@@ -178,20 +289,38 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
                 </td>
                 <td />
               </tr>
-            </>
-          )}
-        </tbody>
+            </tbody>
+          </>
+        )}
       </table>
     </div>
   );
 }
 
-function BudgetDataRow({ row, columns, lastUpdated }) {
+function BudgetDataRow({ row, columns, lastUpdated, showAi = true, rowClassName = "" }) {
   return (
-    <tr className={`data-row ${lastUpdated === row.id ? "highlight-row" : ""}`}>
+    <tr className={`data-row ${lastUpdated === row.id ? "highlight-row" : ""} ${rowClassName}`.trim()}>
       {columns.map((col) => (
         <td key={col.id} className={col.tdClassName ?? ""}>
-          {col.renderCell ? col.renderCell(row) : String(col.accessor?.(row) ?? "")}
+          {col.id === "ai" && !showAi ? null : null}
+          {col.id !== "ai" &&
+            col.id !== "treeBlank" &&
+            (col.id === "coaCode" && rowClassName
+              ? (
+                <span className="nested-child-code">
+                  <span className="nested-child-branch" aria-hidden />
+                  {col.renderCell ? col.renderCell(row) : String(col.accessor?.(row) ?? "")}
+                </span>
+              )
+              : col.id === "coaName" && rowClassName
+              ? (
+                <span className="nested-child-label">
+                  {col.renderCell ? col.renderCell(row) : String(col.accessor?.(row) ?? "")}
+                </span>
+              )
+              : col.renderCell
+                ? col.renderCell(row)
+                : String(col.accessor?.(row) ?? ""))}
         </td>
       ))}
     </tr>
