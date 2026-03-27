@@ -16,7 +16,7 @@ function parseFiscalYear(fy) {
   return Number.isFinite(n) ? n : null;
 }
 
-export default function AiActionModal({ planId, row, fiscalYear, onApply, onClose }) {
+export default function AiActionModal({ planId, row, fiscalYear, planType, onApply, onClose }) {
   const quickActions = LINE_ITEM_QUICK_ACTIONS;
   const promptPlaceholder = 'e.g. "Increase by 12% for Q2"';
   const effectiveRow = row;
@@ -26,6 +26,7 @@ export default function AiActionModal({ planId, row, fiscalYear, onApply, onClos
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null); // { raw, parsed, newValues, newDailyDetails }
+  const [showParsedJson, setShowParsedJson] = useState(false);
 
   if (!effectiveRow) return null;
 
@@ -35,6 +36,7 @@ export default function AiActionModal({ planId, row, fiscalYear, onApply, onClos
     setLoading(true);
     setError("");
     setResult(null);
+    setShowParsedJson(false);
     try {
       const raw = await parseBudgetInstruction(
         provider,
@@ -50,6 +52,7 @@ export default function AiActionModal({ planId, row, fiscalYear, onApply, onClos
             effectiveRow.dailyDetails && Object.keys(effectiveRow.dailyDetails).length > 0
               ? effectiveRow.dailyDetails
               : null,
+          planType: planType ?? null,
         }
       );
       const parsed = normalizeParsedForTransform(raw);
@@ -77,7 +80,7 @@ export default function AiActionModal({ planId, row, fiscalYear, onApply, onClos
   const diff = afterTotal !== null ? afterTotal - beforeTotal : null;
 
   return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="modal-overlay">
       <div className="modal-box ai-modal">
         <div className="modal-header">
           <div className="row-badge">{row.category}</div>
@@ -149,8 +152,16 @@ export default function AiActionModal({ planId, row, fiscalYear, onApply, onClos
         {result && (
           <div className="result-panel">
             <div className="result-section">
-              <div className="result-section-title">AI Parsed Intent (JSON)</div>
-              <pre className="json-output">{JSON.stringify(result.raw, null, 2)}</pre>
+              <button
+                type="button"
+                className="quick-btn parsed-json-toggle-btn"
+                onClick={() => setShowParsedJson((prev) => !prev)}
+              >
+                {showParsedJson ? "Hide parsed JSON" : "Show parsed JSON"}
+              </button>
+              {showParsedJson && (
+                <pre className="json-output">{JSON.stringify(result.raw, null, 2)}</pre>
+              )}
             </div>
 
             <div className="summary-banner">💬 {result.parsed.summary}</div>

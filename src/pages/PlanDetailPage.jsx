@@ -9,6 +9,7 @@ import {
 import AiActionModal from "../components/AiActionModal";
 import AskPlanModal from "../components/AskPlanModal";
 import BudgetTable from "../components/BudgetTable";
+import ManualEditModal from "../components/ManualEditModal";
 
 const PLAN_TYPE_STYLE = {
   BUDGET: { label: "Budget", className: "plan-type-budget" },
@@ -24,6 +25,7 @@ export default function PlanDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [aiModal, setAiModal] = useState(null); // { kind: 'row', row } | { kind: 'plan' } | null
+  const [manualRow, setManualRow] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [activityLog, setActivityLog] = useState([]);
 
@@ -73,6 +75,7 @@ export default function PlanDetailPage() {
       ...prev,
     ]);
     setAiModal(null);
+    setManualRow(null);
     setTimeout(() => setLastUpdated(null), 3000);
   }
 
@@ -129,7 +132,12 @@ export default function PlanDetailPage() {
         )}
         {!loading && !error && rows.length > 0 && (
           <>
-            <BudgetTable rows={rows} onAiAction={(row) => setAiModal({ kind: "row", row })} lastUpdated={lastUpdated} />
+            <BudgetTable
+              rows={rows}
+              onAiAction={(row) => setAiModal({ kind: "row", row })}
+              onManualEdit={(row) => setManualRow(row)}
+              lastUpdated={lastUpdated}
+            />
             {activityLog.length > 0 && (
               <div className="activity-log">
                 <div className="activity-title">📋 AI Update History</div>
@@ -150,6 +158,7 @@ export default function PlanDetailPage() {
           planId={planId}
           row={aiModal.row}
           fiscalYear={planMeta?.fiscalYear}
+          planType={planMeta?.planType}
           onApply={handleApply}
           onClose={() => setAiModal(null)}
         />
@@ -162,6 +171,13 @@ export default function PlanDetailPage() {
             fiscalYear: planMeta?.fiscalYear ?? "",
           }}
           onClose={() => setAiModal(null)}
+        />
+      )}
+      {manualRow && (
+        <ManualEditModal
+          row={manualRow}
+          onApply={handleApply}
+          onClose={() => setManualRow(null)}
         />
       )}
     </div>

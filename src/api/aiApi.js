@@ -12,7 +12,7 @@ export async function parseBudgetInstruction(
   lineKey,
   opts = {}
 ) {
-  const { fiscalYear = null, lineItemType = null, dailyDetails = null } = opts;
+  const { fiscalYear = null, lineItemType = null, dailyDetails = null, planType = null } = opts;
   const res = await fetch(`${API_BASE}/api/ai/parse-instruction`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -26,6 +26,7 @@ export async function parseBudgetInstruction(
       dailyDetails,
       fiscalYear,
       lineItemType,
+      planType,
     }),
   });
   const data = await res.json().catch(() => ({}));

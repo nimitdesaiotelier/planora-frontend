@@ -181,7 +181,7 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="modal-overlay">
       <div className="modal-box ai-modal ask-plan-modal">
         <div className="ask-plan-shell">
           <div className="ask-plan-top">
