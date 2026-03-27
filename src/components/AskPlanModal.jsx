@@ -9,6 +9,13 @@ const QUICK_PROMPTS = [
   "Compare Statistics items with Budget 2025",
 ];
 
+const FAILSAFE_PROMPTS = [
+  "Show top 10 Revenue line items by total",
+  "Compare Revenue with Actuals 2024",
+  "Show Expense lines where delta vs Actuals 2024 is highest",
+  "Show Statistics items and compare with Budget 2025",
+];
+
 const RESULT_SECTIONS = [
   { key: "statistics", title: "Statistics" },
   { key: "revenue", title: "Revenue" },
@@ -175,7 +182,30 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
           </div>
 
           <div className="ask-plan-middle">
-            {error && <div className="error-banner">⚠️ {error}</div>}
+            {error && (
+              <div className="error-banner ai-failsafe-banner">
+                <div>⚠️ {error}</div>
+                <div className="ai-failsafe-help">
+                  Try a shorter explicit prompt (metric + scope + comparison).
+                </div>
+                <div className="ai-failsafe-actions">
+                  {FAILSAFE_PROMPTS.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      className="quick-btn"
+                      onClick={() => {
+                        setQuestion(item);
+                        runAskPlan(item);
+                      }}
+                      disabled={loading}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {response && (
               <div className="result-panel">

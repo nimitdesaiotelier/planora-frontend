@@ -10,6 +10,37 @@ const LINE_ITEM_QUICK_ACTIONS = [
   { label: "Copy prior-year budget", prompt: "Set equal to last year budget" },
 ];
 
+const FAILSAFE_PROMPTS = [
+  { label: "Try simple +5%", prompt: "Increase by 5% for full_year" },
+  { label: "Try one month set", prompt: "Set Jan to 1000" },
+  { label: "Try copy LY budget", prompt: "Copy from last year budget for full_year" },
+];
+
+/** Shown when the model did not produce an applicable budget action or month values. */
+const INVALID_AI_ACTION_MESSAGE =
+  "That is not a valid budget instruction. Please try again with a clear action (for example: increase, decrease, set an amount, or copy from a source).";
+
+function normalizeAiActionErrorMessage(message) {
+  const m = String(message || "").trim();
+  if (!m) return INVALID_AI_ACTION_MESSAGE;
+  if (
+    /could not interpret|refine the prompt|no month values|not interpret/i.test(m)
+  ) {
+    return INVALID_AI_ACTION_MESSAGE;
+  }
+  return m;
+}
+
+/** True when normalized instructions are empty or no month totals were returned. */
+function isMissingAiAction(parsed, newValues) {
+  const instructions = parsed?.instructions ?? [];
+  if (!Array.isArray(instructions) || instructions.length === 0) return true;
+  if (!newValues || typeof newValues !== "object") return true;
+  const monthKeys = MONTHS.filter((mo) => Object.prototype.hasOwnProperty.call(newValues, mo));
+  if (monthKeys.length === 0) return true;
+  return false;
+}
+
 function parseFiscalYear(fy) {
   if (fy == null || fy === "") return null;
   const n = Number(fy);
@@ -57,9 +88,15 @@ export default function AiActionModal({ planId, row, fiscalYear, onApply, onClos
       const parsed = normalizeParsedForTransform(raw);
       const newValues = raw.newValues ?? {};
       const newDailyDetails = raw.newDailyDetails ?? null;
+      if (isMissingAiAction(parsed, newValues)) {
+        throw new Error(INVALID_AI_ACTION_MESSAGE);
+      }
       setResult({ raw, parsed, newValues, newDailyDetails });
     } catch (err) {
-      setError(err.message || "AI request failed. Configure keys on the server.");
+      setError(
+        normalizeAiActionErrorMessage(err.message) ||
+          "AI request failed. Try a simpler prompt or switch model."
+      );
     } finally {
       setLoading(false);
     }
@@ -146,7 +183,30 @@ export default function AiActionModal({ planId, row, fiscalYear, onApply, onClos
           </button>
         </div>
 
-        {error && <div className="error-banner">⚠️ {error}</div>}
+        {error && (
+          <div className="error-banner ai-failsafe-banner">
+            <div>⚠️ {error}</div>
+            <div className="ai-failsafe-help">
+              Try a shorter explicit prompt (action + amount + period).
+            </div>
+            <div className="ai-failsafe-actions">
+              {FAILSAFE_PROMPTS.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  className="quick-btn"
+                  onClick={() => {
+                    setPrompt(item.prompt);
+                    handleRun(item.prompt);
+                  }}
+                  disabled={loading}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {result && (
           <div className="result-panel">
