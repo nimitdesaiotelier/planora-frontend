@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { askPlan, exportAskPlanExcel } from "../api/askPlanApi";
+import { analyzeAskPlanResult, askPlan, exportAskPlanExcel } from "../api/askPlanApi";
 import { MONTHS } from "../data/budgetData";
 
 const QUICK_PROMPTS = [
@@ -53,6 +53,10 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [response, setResponse] = useState(null);
+  const [submittedQuestion, setSubmittedQuestion] = useState("");
+  const [analysisPoints, setAnalysisPoints] = useState(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState("");
   const [expandedLineKeys, setExpandedLineKeys] = useState({});
 
   const titlePlanName = planScope?.planName?.trim() || "Plan";
@@ -67,6 +71,9 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
 
   const hasRows = Array.isArray(response?.resultRows) && response.resultRows.length > 0;
 
+  const showAnalysisSection =
+    hasRows && (analysisLoading || analysisError || (analysisPoints != null && analysisPoints.length > 0));
+
   const canRun = useMemo(() => question.trim().length > 0, [question]);
 
   function toggleExpanded(lineKey) {
@@ -80,6 +87,8 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
     setLoading(true);
     setError("");
     setResponse(null);
+    setAnalysisPoints(null);
+    setAnalysisError("");
     setExpandedLineKeys({});
 
     try {
@@ -88,11 +97,28 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
         question: finalQuestion,
         basePlanId: Number(planId),
       });
+      setSubmittedQuestion(finalQuestion);
       setResponse(data);
     } catch (err) {
       setError(err.message || "Ask plan failed.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function runAnalysis() {
+    if (!response || !hasRows) return;
+    const q = submittedQuestion.trim() || "(no question)";
+    setAnalysisLoading(true);
+    setAnalysisError("");
+    setAnalysisPoints(null);
+    try {
+      const data = await analyzeAskPlanResult({ provider, question: q, response });
+      setAnalysisPoints(Array.isArray(data?.points) ? data.points : []);
+    } catch (err) {
+      setAnalysisError(err.message || "Analysis failed.");
+    } finally {
+      setAnalysisLoading(false);
     }
   }
 
@@ -172,10 +198,21 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
                     <button
                       className="btn-secondary ask-plan-export-btn"
                       type="button"
+                      onClick={() => runAnalysis()}
+                      disabled={loading || analysisLoading}
+                    >
+                      {analysisLoading ? <span className="spinner" /> : "Analyse"}
+                    </button>
+                    <button
+                      className="btn-secondary ask-plan-export-btn"
+                      type="button"
                       onClick={async () => {
                         setError("");
                         try {
-                          await exportAskPlanExcel(response, { includeChart: false });
+                          await exportAskPlanExcel(response, {
+                            includeChart: false,
+                            analysisPoints: analysisPoints?.length ? analysisPoints : undefined,
+                          });
                         } catch (err) {
                           setError(err.message || "Excel export failed.");
                         }
@@ -189,7 +226,10 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
                       onClick={async () => {
                         setError("");
                         try {
-                          await exportAskPlanExcel(response, { includeChart: true });
+                          await exportAskPlanExcel(response, {
+                            includeChart: true,
+                            analysisPoints: analysisPoints?.length ? analysisPoints : undefined,
+                          });
                         } catch (err) {
                           setError(err.message || "Excel export failed.");
                         }
@@ -240,6 +280,27 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
                   </tbody>
                 </table>
               </div>
+
+              {showAnalysisSection && (
+                <div className="ask-plan-analysis-block">
+                  <div className="result-section-title">Analysis</div>
+                  {analysisLoading && (
+                    <div className="ask-plan-analysis-loading" aria-live="polite">
+                      <span className="spinner" /> Generating summary…
+                    </div>
+                  )}
+                  {analysisError && !analysisLoading && (
+                    <div className="warning-banner ask-plan-analysis-error">⚠️ {analysisError}</div>
+                  )}
+                  {!analysisLoading && !analysisError && analysisPoints && analysisPoints.length > 0 && (
+                    <ul className="ask-plan-analysis-points">
+                      {analysisPoints.map((p, i) => (
+                        <li key={`${i}-${p.slice(0, 24)}`}>{p}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="modal-footer">
