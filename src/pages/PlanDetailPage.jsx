@@ -100,7 +100,7 @@ export default function PlanDetailPage() {
             </span>
           )}
           {planMeta?.fiscalYear != null && planMeta.fiscalYear !== "" && (
-            <span className="plan-badge plan-badge-subtle">FY {planMeta.fiscalYear}</span>
+            <span className="plan-badge plan-badge-subtle">{planMeta.fiscalYear}</span>
           )}
           {planMeta?.propertyName && (
             <span className="plan-badge plan-badge-subtle">{planMeta.propertyName}</span>

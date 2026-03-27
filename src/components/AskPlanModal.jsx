@@ -225,7 +225,7 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
               <div className="row-badge">Plan</div>
               <h2>
                 ✨ Ask Plan — <span className="row-name">{titlePlanName}</span>
-                {titleFy != null && <span className="plan-ai-title-year">, FY {titleFy}</span>}
+                {titleFy != null && <span className="plan-ai-title-year">, {titleFy}</span>}
               </h2>
               <button className="close-btn" type="button" onClick={onClose}>
                 ✕
