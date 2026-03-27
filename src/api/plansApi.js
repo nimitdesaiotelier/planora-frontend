@@ -62,11 +62,15 @@ export function lineItemToRow(dto) {
   };
 }
 
-export async function patchLineItemValues(planId, lineItemId, values) {
+/**
+ * @param {object} body - { values } or { values, dailyDetails }. When dailyDetails is set, the server
+ *   stores dailies and sets month totals from the sum of each month’s days.
+ */
+export async function patchLineItemValues(planId, lineItemId, body) {
   const res = await fetch(url(`/api/plans/${planId}/line-items/${lineItemId}`), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ values }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Save failed: ${res.status} ${await res.text()}`);
   return res.json();

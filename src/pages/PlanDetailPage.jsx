@@ -54,15 +54,18 @@ export default function PlanDetailPage() {
     load();
   }, [load]);
 
-  async function handleApply(rowId, newValues, summary) {
+  async function handleApply(rowId, body, summary) {
+    let updated;
     try {
-      await patchLineItemValues(planId, rowId, newValues);
+      updated = await patchLineItemValues(planId, rowId, body);
     } catch (e) {
       window.alert(`Could not save to server: ${e.message}`);
       return;
     }
     setRows((prev) =>
-      prev.map((r) => (r.id === rowId ? { ...r, values: { ...newValues } } : r))
+      prev.map((r) =>
+        String(r.id) === String(rowId) ? lineItemToRow(updated) : r
+      )
     );
     setLastUpdated(rowId);
     setActivityLog((prev) => [
@@ -146,6 +149,7 @@ export default function PlanDetailPage() {
         <AiActionModal
           planId={planId}
           row={aiModal.row}
+          fiscalYear={planMeta?.fiscalYear}
           onApply={handleApply}
           onClose={() => setAiModal(null)}
         />
