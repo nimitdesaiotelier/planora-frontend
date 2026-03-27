@@ -378,7 +378,7 @@ export default function CoaPage() {
       </main>
 
       {modalOpen && (
-        <div className="modal-overlay" role="presentation" onClick={(ev) => ev.target === ev.currentTarget && closeModal()}>
+        <div className="modal-overlay" role="presentation">
           <div className="modal-box api-key-modal coa-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{editingId == null ? "Add COA" : "Edit COA"}</h2>
