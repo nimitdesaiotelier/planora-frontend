@@ -4,10 +4,12 @@ import { MONTHS } from "../data/budgetData";
 import SortFilterThead from "./SortFilterThead";
 import { useTableSortFilter } from "../hooks/useTableSortFilter";
 
-/** Tree blank + COA code + COA name + Dept + Account type + months + total + AI */
-const EXTRA_COLS = 7;
+/** Non-month columns: tree + COA code + COA name + Dept + Account type + total [+ AI] */
+function nonMonthColumnCount(showAiColumn) {
+  return showAiColumn ? 7 : 6;
+}
 
-export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
+export default function BudgetTable({ rows, onAiAction, lastUpdated, showAiColumn = true }) {
   const [collapsedSections, setCollapsedSections] = useState({});
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const budgetColumns = useMemo(() => {
@@ -86,25 +88,27 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
       tdClassName: "value-cell total-cell",
       renderCell: (r) => formatLineAmount(r, rowTotal(r.values)),
     });
-    cols.push({
-      id: "ai",
-      header: "AI",
-      sortable: false,
-      filterable: false,
-      thClassName: "col-action",
-      tdClassName: "action-cell",
-      renderCell: (r) => (
-        <button
-          className="ai-btn"
-          onClick={() => onAiAction(r)}
-          title={`AI Action for ${r.label}`}
-        >
-          ✨
-        </button>
-      ),
-    });
+    if (showAiColumn) {
+      cols.push({
+        id: "ai",
+        header: "AI",
+        sortable: false,
+        filterable: false,
+        thClassName: "col-action",
+        tdClassName: "action-cell",
+        renderCell: (r) => (
+          <button
+            className="ai-btn"
+            onClick={() => onAiAction?.(r)}
+            title={`AI Action for ${r.label}`}
+          >
+            ✨
+          </button>
+        ),
+      });
+    }
     return cols;
-  }, [lastUpdated, onAiAction]);
+  }, [lastUpdated, onAiAction, showAiColumn]);
 
   const { processedRows, sortKey, sortDir, filters, setFilter, toggleSort } = useTableSortFilter(
     rows,
@@ -150,14 +154,6 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
     return groups.map((g) => {
       const groupKey = `${sectionType}::${g.department}`;
       const isCollapsed = Boolean(collapsedGroups[groupKey]);
-      const summaryRow = {
-        id: null,
-        coaCode: "",
-        coaName: g.department,
-        department: g.department,
-        type: sectionType,
-        values: g.values,
-      };
       return (
         <tbody key={`${sectionType}-${g.department}`}>
           <tr className="subtotal-row group-parent-row dept-child-row">
@@ -183,7 +179,7 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
               <td key={m}>{formatCurrency(g.values[m])}</td>
             ))}
             <td>{formatCurrency(rowTotal(g.values))}</td>
-            <td className="action-cell" />
+            {showAiColumn && <td className="action-cell" />}
           </tr>
           {!isCollapsed &&
             g.items.map((row, idx) => (
@@ -192,7 +188,7 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
                 row={row}
                 columns={budgetColumns}
                 lastUpdated={lastUpdated}
-                showAi
+                showAi={showAiColumn}
                 rowClassName={`nested-child-row nested-grandchild-row ${idx === g.items.length - 1 ? "nested-child-last" : ""}`}
               />
             ))}
@@ -232,7 +228,7 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
                 <td key={m}>{formatCurrency(totalFn(m))}</td>
               ))}
               <td>{formatCurrency(MONTHS.reduce((s, m) => s + totalFn(m), 0))}</td>
-              <td />
+              {showAiColumn && <td />}
             </tr>
           </tbody>
         )}
@@ -240,7 +236,7 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
     );
   }
 
-  const fullColSpan = MONTHS.length + EXTRA_COLS;
+  const fullColSpan = MONTHS.length + nonMonthColumnCount(showAiColumn);
 
   return (
     <div className="table-wrapper">
@@ -279,7 +275,7 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
                 <td className={MONTHS.reduce((s, m) => s + nopTotal(m), 0) >= 0 ? "pos" : "neg"}>
                   {formatCurrency(MONTHS.reduce((s, m) => s + nopTotal(m), 0))}
                 </td>
-                <td />
+                {showAiColumn && <td />}
               </tr>
             </tbody>
           </>
