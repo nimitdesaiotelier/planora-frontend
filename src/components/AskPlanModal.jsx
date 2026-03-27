@@ -54,7 +54,7 @@ function MonthValuesTable({ baseValues, compareValues, actualValues, showCompare
 }
 
 export default function AskPlanModal({ planId, planScope, onClose }) {
-  const [provider, setProvider] = useState("gemini");
+  const [provider, setProvider] = useState("openai");
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -64,6 +64,7 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
   const [expandedLineKeys, setExpandedLineKeys] = useState({});
+  const [showIntentJson, setShowIntentJson] = useState(false);
 
   const titlePlanName = planScope?.planName?.trim() || "Plan";
   const titleFy =
@@ -76,12 +77,33 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
   const showActuals = compareMode === "actuals" || Boolean(response?.appliedFilters?.includeActuals);
 
   const hasRows = Array.isArray(response?.resultRows) && response.resultRows.length > 0;
+  const showNoDataInfo = Boolean(response) && !hasRows;
+  const suggestedPlans = useMemo(
+    () => (Array.isArray(response?.meta?.suggestedPlans) ? response.meta.suggestedPlans : []),
+    [response]
+  );
   const tableColSpan = (showCompare ? 9 : 7) + (showActuals ? 2 : 0);
 
   const showAnalysisSection =
     hasRows && (analysisLoading || analysisError || (analysisPoints != null && analysisPoints.length > 0));
 
   const canRun = useMemo(() => question.trim().length > 0, [question]);
+  const responseMessage = useMemo(
+    () => response?.summary || response?.message || response?.meta?.message || "",
+    [response]
+  );
+  const parsedIntentJson = useMemo(() => {
+    if (!response) return "";
+    return JSON.stringify(
+      {
+        intent: response.intent ?? null,
+        appliedFilters: response.appliedFilters ?? null,
+        meta: response.meta ?? null,
+      },
+      null,
+      2
+    );
+  }, [response]);
   const groupedRows = useMemo(() => {
     if (!hasRows) return RESULT_SECTIONS.map((s) => ({ ...s, rows: [] }));
 
@@ -125,6 +147,7 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
     setAnalysisPoints(null);
     setAnalysisError("");
     setExpandedLineKeys({});
+    setShowIntentJson(false);
 
     try {
       const data = await askPlan({
@@ -229,6 +252,48 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
                       </div>
                     )}
                   </div>
+
+                  {showNoDataInfo && Boolean(responseMessage) && (
+                    <div className="summary-banner">{responseMessage}</div>
+                  )}
+
+                  {showNoDataInfo && suggestedPlans.length > 0 && (
+                    <div className="ask-plan-suggestions-block">
+                      <div className="result-section-title">Suggested plans</div>
+                      <div className="month-table-wrapper">
+                        <table className="month-table ask-plan-suggestions-table">
+                          <thead>
+                            <tr>
+                              <th>Name</th>
+                              <th>Type</th>
+                              <th>Fiscal Year</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {suggestedPlans.map((plan) => (
+                              <tr key={plan.id ?? `${plan.name}-${plan.fiscalYear}-${plan.planType}`}>
+                                <td>{plan.name ?? "—"}</td>
+                                <td>{plan.planType ?? "—"}</td>
+                                <td>{plan.fiscalYear ?? "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="ask-plan-intent-block">
+                    <button
+                      className="btn-secondary ask-plan-intent-toggle"
+                      type="button"
+                      onClick={() => setShowIntentJson((prev) => !prev)}
+                    >
+                      {showIntentJson ? "Hide AI Parsed Intent (JSON)" : "Show AI Parsed Intent (JSON)"}
+                    </button>
+                    {showIntentJson && <pre className="json-output">{parsedIntentJson || "{}"}</pre>}
+                  </div>
+
                   <div className="month-table-wrapper ask-plan-result-table-wrap">
                     <table className="month-table ask-plan-result-table">
                       <thead>

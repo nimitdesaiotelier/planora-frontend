@@ -925,6 +925,29 @@ body {
   margin-bottom: 0;
 }
 
+.ask-plan-intent-block {
+  margin: 10px 0 12px;
+}
+
+.ask-plan-intent-toggle {
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+.ask-plan-suggestions-block {
+  margin: 10px 0 12px;
+}
+
+.ask-plan-suggestions-table th,
+.ask-plan-suggestions-table td {
+  text-align: left;
+}
+
+.ask-plan-suggestions-table th:nth-child(1),
+.ask-plan-suggestions-table td:nth-child(1) {
+  min-width: 320px;
+}
+
 .json-output {
   background: var(--bg);
   border: 1px solid var(--border);
