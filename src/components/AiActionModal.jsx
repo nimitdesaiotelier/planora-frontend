@@ -21,7 +21,7 @@ export default function AiActionModal({ planId, row, fiscalYear, onApply, onClos
   const promptPlaceholder = 'e.g. "Increase by 12% for Q2"';
   const effectiveRow = row;
 
-  const [provider, setProvider] = useState("gemini");
+  const [provider, setProvider] = useState("openai");
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -97,7 +97,7 @@ export default function AiActionModal({ planId, row, fiscalYear, onApply, onClos
             onChange={(e) => setProvider(e.target.value)}
             disabled={loading}
           >
-            {/* <option value="openai">OpenAI (server key)</option> */}
+            <option value="openai">OpenAI (server key)</option>
             <option value="gemini">Gemini (server key)</option>
           </select>
         </div>
