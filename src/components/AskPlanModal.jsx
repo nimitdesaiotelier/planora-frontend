@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { askPlan } from "../api/askPlanApi";
+import { askPlan, exportAskPlanExcel } from "../api/askPlanApi";
 import { MONTHS } from "../data/budgetData";
 
 const QUICK_PROMPTS = [
@@ -165,7 +165,41 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
         {response && (
           <div className="result-panel">
             <div className="result-section">
-              <div className="result-section-title">Result Rows</div>
+              <div className="result-section-header">
+                <div className="result-section-title">Result Rows</div>
+                {hasRows && (
+                  <div className="ask-plan-export-actions">
+                    <button
+                      className="btn-secondary ask-plan-export-btn"
+                      type="button"
+                      onClick={async () => {
+                        setError("");
+                        try {
+                          await exportAskPlanExcel(response, { includeChart: false });
+                        } catch (err) {
+                          setError(err.message || "Excel export failed.");
+                        }
+                      }}
+                    >
+                      Excel
+                    </button>
+                    <button
+                      className="btn-secondary ask-plan-export-btn"
+                      type="button"
+                      onClick={async () => {
+                        setError("");
+                        try {
+                          await exportAskPlanExcel(response, { includeChart: true });
+                        } catch (err) {
+                          setError(err.message || "Excel export failed.");
+                        }
+                      }}
+                    >
+                      Excel + chart
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="month-table-wrapper ask-plan-result-table-wrap">
                 <table className="month-table ask-plan-result-table">
                   <thead>
