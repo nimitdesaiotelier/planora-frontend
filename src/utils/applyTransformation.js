@@ -16,7 +16,7 @@ export function applyTransformation(row, parsed) {
     const current = newValues[month];
 
     if (action === "copy" && type === "ly_actual") {
-      const av = row.actualsValues ?? {}; // AI path uses server prior-FY budget instead
+      const av = row.actualsValues ?? {}; // AI path uses server prior-year budget instead
       newValues[month] = av[month] ?? 0;
     } else if (action === "increase") {
       if (type === "percentage") {

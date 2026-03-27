@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { createPlan, deletePlan, fetchPlans, fetchProperties } from "../api/plansApi";
 
 const PLAN_TYPE_STYLE = {
@@ -8,10 +8,24 @@ const PLAN_TYPE_STYLE = {
   WHAT_IF: { label: "What-if", className: "plan-type-whatif" },
 };
 
+const PLAN_TYPE_ORDER = ["BUDGET", "FORECAST", "WHAT_IF"];
+
+function buildFiscalYearOptions() {
+  const current = new Date().getFullYear();
+  const years = [];
+  for (let y = current - 5; y <= current + 7; y++) {
+    years.push(y);
+  }
+  return years;
+}
+
 export default function PlansPage() {
   const navigate = useNavigate();
+  const fiscalYearOptions = useMemo(() => buildFiscalYearOptions(), []);
   const [properties, setProperties] = useState([]);
   const [propertyId, setPropertyId] = useState("");
+  const [yearFilter, setYearFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createPropertyId, setCreatePropertyId] = useState("");
   const [createYear, setCreateYear] = useState(new Date().getFullYear());
@@ -76,6 +90,53 @@ export default function PlansPage() {
     const data = await fetchPlans(pid);
     setPlans(data);
   }
+
+  const availableYears = useMemo(() => {
+    const s = new Set();
+    for (const p of plans) {
+      const n = p.fiscalYear != null && p.fiscalYear !== "" ? Number(p.fiscalYear) : NaN;
+      if (Number.isFinite(n)) s.add(n);
+    }
+    return [...s].sort((a, b) => b - a);
+  }, [plans]);
+
+  useEffect(() => {
+    if (yearFilter === "") return;
+    const y = Number(yearFilter);
+    if (!Number.isFinite(y) || !availableYears.includes(y)) {
+      setYearFilter("");
+    }
+  }, [availableYears, yearFilter]);
+
+  const filteredPlans = useMemo(() => {
+    let list = plans;
+    if (yearFilter !== "") {
+      const y = Number(yearFilter);
+      list = list.filter((p) => Number(p.fiscalYear) === y);
+    }
+    if (typeFilter !== "") {
+      list = list.filter((p) => p.planType === typeFilter);
+    }
+    return list;
+  }, [plans, yearFilter, typeFilter]);
+
+  const plansByYear = useMemo(() => {
+    const groups = new Map();
+    for (const p of filteredPlans) {
+      const raw = p.fiscalYear;
+      const n = raw != null && raw !== "" ? Number(raw) : NaN;
+      const key = Number.isFinite(n) ? n : "__other__";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(p);
+    }
+    const numericYears = [...groups.keys()].filter((k) => k !== "__other__");
+    numericYears.sort((a, b) => b - a);
+    const ordered = numericYears.map((year) => ({ year, plans: groups.get(year) }));
+    if (groups.has("__other__")) {
+      ordered.push({ year: null, plans: groups.get("__other__") });
+    }
+    return ordered;
+  }, [filteredPlans]);
 
   async function onCreatePlan(e) {
     e.preventDefault();
@@ -153,40 +214,75 @@ export default function PlansPage() {
   return (
     <div className="plans-screen">
       <div className="plan-header">
-        <div className="plan-info">
-          <h1>All plans</h1>
-          <span className="plan-badge">Live data</span>
+        <div className="plan-header-left">
+          <div className="plan-info">
+            <h1>All plans</h1>
+            <span className="plan-badge">Live data</span>
+          </div>
+          <div className="plan-header-filters">
+            <div className="plan-filter-field">
+              <label htmlFor="prop-filter">Property</label>
+              <select
+                id="prop-filter"
+                className="provider-select"
+                value={propertyId}
+                onChange={(e) => setPropertyId(e.target.value)}
+              >
+                <option value="">All properties</option>
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="plan-filter-field">
+              <label htmlFor="year-filter">Year</label>
+              <select
+                id="year-filter"
+                className="provider-select"
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value)}
+              >
+                <option value="">All years</option>
+                {availableYears.map((y) => (
+                  <option key={y} value={String(y)}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="plan-filter-field">
+              <label htmlFor="type-filter">Type</label>
+              <select
+                id="type-filter"
+                className="provider-select"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+              >
+                <option value="">All types</option>
+                {PLAN_TYPE_ORDER.map((t) => (
+                  <option key={t} value={t}>
+                    {PLAN_TYPE_STYLE[t]?.label ?? t}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
-        <div className="plan-filter-row">
-          <label htmlFor="prop-filter">Property</label>
-          <select
-            id="prop-filter"
-            className="provider-select"
-            value={propertyId}
-            onChange={(e) => setPropertyId(e.target.value)}
+        <div className="plan-header-actions">
+          <button
+            className="btn-primary"
+            type="button"
+            onClick={() => {
+              setCreateAlert(null);
+              setCreateError(null);
+              setCreateModalOpen(true);
+            }}
           >
-            <option value="">All properties</option>
-            {properties.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            Create plan
+          </button>
         </div>
-        <button
-          className="btn-primary"
-          type="button"
-          onClick={() => {
-            setCreateAlert(null);
-            setCreateError(null);
-            setCreateModalOpen(true);
-          }}
-        >
-          Create plan
-        </button>
-        {/* <div className="plan-meta">
-          Budget, forecast, and what-if plans are stored <strong>per property</strong>.
-        </div> */}
       </div>
 
       <main className="main-content">
@@ -215,37 +311,89 @@ export default function PlansPage() {
         {!loading && !error && plans.length === 0 && (
           <div className="plans-state">No plans for this filter. Run the backend seed.</div>
         )}
-        {!loading && !error && plans.length > 0 && (
-          <div className="plans-grid">
-            {plans.map((p) => {
-              const t = PLAN_TYPE_STYLE[p.planType] || {
-                label: p.planType,
-                className: "plan-type-default",
-              };
-              return (
-                <div key={p.id} className="plan-card">
-                  <Link to={`/plans/${p.id}`} className="plan-card-link">
-                    <div className={`plan-card-type ${t.className}`}>{t.label}</div>
-                    <div className="plan-card-title">{p.name}</div>
-                    <div className="plan-card-meta">
-                      FY {p.fiscalYear}
-                      {p.propertyName ? ` · ${p.propertyName}` : ""}
-                    </div>
-                    <div className="plan-card-action">Open line items →</div>
-                  </Link>
-                  <div className="plan-card-actions">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => onDeletePlan(p)}
-                      disabled={deletingPlanId === p.id}
-                    >
-                      {deletingPlanId === p.id ? "Deleting..." : "Delete"}
-                    </button>
-                  </div>
+        {!loading && !error && plans.length > 0 && filteredPlans.length === 0 && (
+          <div className="plans-state">
+            No plans match the selected filters. Try &quot;All years&quot;, &quot;All types&quot;, or another property.
+          </div>
+        )}
+        {!loading && !error && filteredPlans.length > 0 && (
+          <div className="plans-by-year">
+            {plansByYear.map(({ year, plans: yearPlans }) => (
+              <section key={year ?? "other"} className="plans-year-group">
+                <h2 className="plans-year-heading">
+                  {year != null ? String(year) : "Other"}
+                </h2>
+                <div className="plans-grid">
+                  {yearPlans.map((p) => {
+                    const t = PLAN_TYPE_STYLE[p.planType] || {
+                      label: p.planType,
+                      className: "plan-type-default",
+                    };
+                    return (
+                      <div
+                        key={p.id}
+                        className="plan-card plan-card-compact"
+                        role="link"
+                        tabIndex={0}
+                        onClick={() => navigate(`/plans/${p.id}`)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            navigate(`/plans/${p.id}`);
+                          }
+                        }}
+                      >
+                        <div className="plan-card-link">
+                          <span className={`plan-card-type ${t.className}`}>{t.label}</span>
+                          <div className="plan-card-text">
+                            <div className="plan-card-title-wrap" title={p.name ?? ""}>
+                              <span className="plan-card-title">{p.name}</span>
+                            </div>
+                            <div className="plan-card-meta">
+                              <span className="plan-card-fy">{p.fiscalYear}</span>
+                              {p.propertyName ? (
+                                <span className="plan-card-property">{p.propertyName}</span>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="plan-card-delete-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeletePlan(p);
+                          }}
+                          disabled={deletingPlanId === p.id}
+                          title="Delete plan"
+                          aria-label={`Delete plan ${p.name ?? p.id}`}
+                        >
+                          {deletingPlanId === p.id ? (
+                            <span className="spinner plan-card-delete-spinner" aria-hidden />
+                          ) : (
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden
+                            >
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </section>
+            ))}
           </div>
         )}
       </main>
@@ -306,14 +454,19 @@ export default function PlansPage() {
               </label>
               <label className="coa-field">
                 Fiscal year
-                <input
-                  className="year-input"
-                  type="number"
+                <select
+                  className="provider-select"
                   value={createYear}
                   onChange={(e) => setCreateYear(Number(e.target.value))}
                   required
                   disabled={creating}
-                />
+                >
+                  {fiscalYearOptions.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="coa-field">
                 Plan type
