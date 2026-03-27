@@ -18,6 +18,17 @@ async function readError(res) {
   return text || `Request failed (${res.status})`;
 }
 
+/** Years that have at least one actuals row for this property (newest first). */
+export async function fetchActualsYears(propertyId, organizationId = 1) {
+  const params = new URLSearchParams({
+    propertyId: String(propertyId),
+    organizationId: String(organizationId),
+  });
+  const res = await fetch(apiUrl(`/api/actuals/years?${params}`));
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
 export async function fetchActuals(year, propertyId, organizationId = 1) {
   const params = new URLSearchParams({
     year: String(year),
