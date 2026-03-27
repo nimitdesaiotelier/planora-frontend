@@ -258,9 +258,10 @@ export default function ActualsPage() {
           <Link to="/coa" className="actuals-coa-link">
             Chart of accounts
           </Link>{" "}
-          for this property. Column B is <strong>COA name</strong>, columns C–N = Jan–Dec, and optional columns O+ are daily values. Use{" "}
-          <strong>Export</strong> for the exact upload format (headers only if there is no data yet). Re-importing
-          the same file after export updates existing rows by COA code — no separate template.
+          for this property. 
+          {/* Column B is <strong>COA name</strong>, columns C–N = Jan–Dec, and optional columns O+ are daily values. Use{" "}
+          <strong>Export</strong> for the exact upload format (headers only if there is no data yet). */}
+           Re-importing the same file after export updates existing rows by COA code — no separate template.
         </p>
       </div>
 

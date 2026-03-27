@@ -27,7 +27,7 @@ export default function SortFilterThead({ columns, sortKey, sortDir, filters, on
       </tr>
       <tr className="table-filter-row">
         {columns.map((col) => (
-          <th key={`f-${col.id}`} className={col.filterThClassName}>
+          <th key={`f-${col.id}`} className={col.filterThClassName ?? col.thClassName}>
             {col.filterable ? (
               <input
                 type="search"

@@ -7,9 +7,10 @@ import { useTableSortFilter } from "../hooks/useTableSortFilter";
 /** Tree blank + COA code + COA name + Dept + Account type + months + total + AI */
 const EXTRA_COLS = 7;
 
-export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
+export default function BudgetTable({ rows, onAiAction, onManualEdit, lastUpdated }) {
   const [collapsedSections, setCollapsedSections] = useState({});
   const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [hideZeroRows, setHideZeroRows] = useState(true);
   const budgetColumns = useMemo(() => {
     const cols = [
       {
@@ -28,7 +29,7 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
         sortable: true,
         filterable: true,
         thClassName: "col-label",
-        tdClassName: "label-cell coa-code-cell",
+        tdClassName: "coa-code-cell",
       },
       {
         id: "coaName",
@@ -88,32 +89,51 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
     });
     cols.push({
       id: "ai",
-      header: "AI",
+      header: "Action",
       sortable: false,
       filterable: false,
       thClassName: "col-action",
       tdClassName: "action-cell",
       renderCell: (r) => (
-        <button
-          className="ai-btn"
-          onClick={() => onAiAction(r)}
-          title={`AI Action for ${r.label}`}
-        >
-          ✨
-        </button>
+        <div className="action-btn-group">
+          <button
+            className="ai-btn"
+            onClick={() => onAiAction(r)}
+            title={`AI Action for ${r.label}`}
+          >
+            ✨
+          </button>
+          <button
+            className="manual-edit-btn"
+            onClick={() => onManualEdit?.(r)}
+            title={`Manual edit for ${r.label}`}
+          >
+            ✏️
+          </button>
+        </div>
       ),
     });
     return cols;
-  }, [lastUpdated, onAiAction]);
+  }, [lastUpdated, onAiAction, onManualEdit]);
 
   const { processedRows, sortKey, sortDir, filters, setFilter, toggleSort } = useTableSortFilter(
     rows,
     budgetColumns
   );
 
-  const statRows = processedRows.filter((r) => r.type === "Statistics");
-  const revenueRows = processedRows.filter((r) => r.type === "Revenue");
-  const expenseRows = processedRows.filter((r) => r.type === "Expense");
+  const visibleRows = useMemo(() => {
+    if (!hideZeroRows) return processedRows;
+    return processedRows.filter((r) =>
+      MONTHS.some((m) => {
+        const n = Number(r.values?.[m] ?? 0);
+        return Number.isFinite(n) && Math.abs(n) > 0;
+      })
+    );
+  }, [hideZeroRows, processedRows]);
+
+  const statRows = visibleRows.filter((r) => r.type === "Statistics");
+  const revenueRows = visibleRows.filter((r) => r.type === "Revenue");
+  const expenseRows = visibleRows.filter((r) => r.type === "Expense");
 
   function revenueTotal(month) {
     return revenueRows.reduce((s, r) => s + r.values[month], 0);
@@ -126,6 +146,13 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
   }
   function nopTotal(month) {
     return revenueTotal(month) - expenseTotal(month);
+  }
+
+  function formatBySectionType(sectionType, value) {
+    if (sectionType === "Statistics") {
+      return formatLineAmount({ type: "Statistics" }, value);
+    }
+    return formatCurrency(value);
   }
 
   function groupByDepartment(sectionRows) {
@@ -162,27 +189,29 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
         <tbody key={`${sectionType}-${g.department}`}>
           <tr className="subtotal-row group-parent-row dept-child-row">
             <td className="label-cell department-parent-cell">
-              <button
-                type="button"
-                className="group-toggle-btn"
-                onClick={() =>
-                  setCollapsedGroups((prev) => ({ ...prev, [groupKey]: !prev[groupKey] }))
-                }
-                aria-expanded={!isCollapsed}
-                aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${g.department} ${sectionType}`}
-              >
-                {isCollapsed ? "▸" : "▾"}
-              </button>
-              {g.department}
+              <span className="department-parent-indent">
+                <button
+                  type="button"
+                  className="group-toggle-btn"
+                  onClick={() =>
+                    setCollapsedGroups((prev) => ({ ...prev, [groupKey]: !prev[groupKey] }))
+                  }
+                  aria-expanded={!isCollapsed}
+                  aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${g.department} ${sectionType}`}
+                >
+                  {isCollapsed ? "▸" : "▾"}
+                </button>
+                {g.department}
+              </span>
             </td>
             <td />
             <td />
             <td />
             <td className="type-cell">{sectionType}</td>
             {MONTHS.map((m) => (
-              <td key={m}>{formatCurrency(g.values[m])}</td>
+              <td key={m}>{formatBySectionType(sectionType, g.values[m])}</td>
             ))}
-            <td>{formatCurrency(rowTotal(g.values))}</td>
+            <td>{formatBySectionType(sectionType, rowTotal(g.values))}</td>
             <td className="action-cell" />
           </tr>
           {!isCollapsed &&
@@ -229,10 +258,10 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
             <tr className="subtotal-row">
               <td colSpan={5}>Total {title}</td>
               {MONTHS.map((m) => (
-                <td key={m}>{formatCurrency(totalFn(m))}</td>
+                <td key={m}>{formatBySectionType(sectionType, totalFn(m))}</td>
               ))}
-              <td>{formatCurrency(MONTHS.reduce((s, m) => s + totalFn(m), 0))}</td>
-              <td />
+              <td>{formatBySectionType(sectionType, MONTHS.reduce((s, m) => s + totalFn(m), 0))}</td>
+              <td className="action-cell" />
             </tr>
           </tbody>
         )}
@@ -244,6 +273,17 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
 
   return (
     <div className="table-wrapper">
+      <div className="table-tools">
+        <label className="table-tools-toggle">
+          <span className="table-tools-toggle-label">Hide unplanned rows</span>
+          <input
+            type="checkbox"
+            checked={hideZeroRows}
+            onChange={(e) => setHideZeroRows(e.target.checked)}
+          />
+          <span className="table-tools-switch" aria-hidden="true" />
+        </label>
+      </div>
       <table className="budget-table">
         <thead>
           <SortFilterThead
@@ -255,11 +295,11 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
             onFilterChange={setFilter}
           />
         </thead>
-        {processedRows.length === 0 ? (
+        {visibleRows.length === 0 ? (
           <tbody>
             <tr>
               <td colSpan={fullColSpan} className="table-filter-empty-cell">
-                No rows match your filters. Clear or change the filters above.
+                No rows match your filters/toggles. Clear filters or disable "Hide unplanned rows".
               </td>
             </tr>
           </tbody>
@@ -279,7 +319,7 @@ export default function BudgetTable({ rows, onAiAction, lastUpdated }) {
                 <td className={MONTHS.reduce((s, m) => s + nopTotal(m), 0) >= 0 ? "pos" : "neg"}>
                   {formatCurrency(MONTHS.reduce((s, m) => s + nopTotal(m), 0))}
                 </td>
-                <td />
+                <td className="action-cell" />
               </tr>
             </tbody>
           </>

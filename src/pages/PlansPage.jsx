@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { createPlan, deletePlan, fetchPlans, fetchProperties } from "../api/plansApi";
 
 const PLAN_TYPE_STYLE = {
@@ -9,6 +9,7 @@ const PLAN_TYPE_STYLE = {
 };
 
 export default function PlansPage() {
+  const navigate = useNavigate();
   const [properties, setProperties] = useState([]);
   const [propertyId, setPropertyId] = useState("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -22,6 +23,9 @@ export default function PlansPage() {
   const [createError, setCreateError] = useState(null);
   const [creating, setCreating] = useState(false);
   const [deletingPlanId, setDeletingPlanId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [pageAlert, setPageAlert] = useState(null); // { type, message }
+  const [createAlert, setCreateAlert] = useState(null); // { type, message, existingPlanId? }
 
   useEffect(() => {
     let cancelled = false;
@@ -78,9 +82,10 @@ export default function PlansPage() {
     if (!createPropertyId) return;
     setCreating(true);
     setCreateError(null);
+    setCreateAlert(null);
     setCreateProgress(8);
     try {
-      await createPlan({
+      const created = await createPlan({
         propertyId: Number(createPropertyId),
         fiscalYear: Number(createYear),
         planType: createType,
@@ -88,11 +93,29 @@ export default function PlansPage() {
       });
       setCreateProgress(100);
       await reloadPlans();
+      setCreateAlert({
+        type: "success",
+        message: `Plan created successfully: ${created.name}`,
+      });
       setTimeout(() => {
         setCreateModalOpen(false);
         setCreateProgress(0);
       }, 300);
     } catch (err) {
+      if (err?.status === 409 && err?.existingPlanId != null) {
+        setCreateAlert({
+          type: "warning",
+          message: err.message || "This plan already exists.",
+          existingPlanId: err.existingPlanId,
+        });
+        setCreateError(err.message || String(err));
+        setCreateProgress(0);
+        return;
+      }
+      setCreateAlert({
+        type: "error",
+        message: err.message || String(err),
+      });
       setCreateError(err.message || String(err));
       setCreateProgress(0);
     } finally {
@@ -100,15 +123,29 @@ export default function PlansPage() {
     }
   }
 
-  async function onDeletePlan(planId) {
-    if (!window.confirm("Soft-delete this plan? It will be hidden from the list.")) return;
-    setDeletingPlanId(planId);
+  function onDeletePlan(plan) {
+    setDeleteTarget(plan);
+  }
+
+  async function confirmDeletePlan() {
+    if (!deleteTarget) return;
+    setDeletingPlanId(deleteTarget.id);
+    setPageAlert(null);
     try {
-      await deletePlan(planId);
-      setPlans((prev) => prev.filter((p) => p.id !== planId));
+      await deletePlan(deleteTarget.id);
+      setPlans((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+      setPageAlert({
+        type: "success",
+        message: `Plan deleted: ${deleteTarget.name}`,
+      });
     } catch (err) {
+      setPageAlert({
+        type: "error",
+        message: err.message || String(err),
+      });
       setError(err.message || String(err));
     } finally {
+      setDeleteTarget(null);
       setDeletingPlanId(null);
     }
   }
@@ -136,15 +173,37 @@ export default function PlansPage() {
             ))}
           </select>
         </div>
-        <button className="btn-primary" type="button" onClick={() => setCreateModalOpen(true)}>
+        <button
+          className="btn-primary"
+          type="button"
+          onClick={() => {
+            setCreateAlert(null);
+            setCreateError(null);
+            setCreateModalOpen(true);
+          }}
+        >
           Create plan
         </button>
-        <div className="plan-meta">
+        {/* <div className="plan-meta">
           Budget, forecast, and what-if plans are stored <strong>per property</strong>.
-        </div>
+        </div> */}
       </div>
 
       <main className="main-content">
+        {pageAlert && (
+          <div className={`plans-inline-alert plans-inline-alert-${pageAlert.type}`}>
+            <div>{pageAlert.message}</div>
+            <div className="plans-inline-alert-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setPageAlert(null)}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
         {loading && <div className="plans-state">Loading plans…</div>}
         {error && (
           <div className="plans-error">
@@ -178,7 +237,7 @@ export default function PlansPage() {
                     <button
                       type="button"
                       className="btn-secondary"
-                      onClick={() => onDeletePlan(p.id)}
+                      onClick={() => onDeletePlan(p)}
                       disabled={deletingPlanId === p.id}
                     >
                       {deletingPlanId === p.id ? "Deleting..." : "Delete"}
@@ -195,7 +254,6 @@ export default function PlansPage() {
         <div
           className="modal-overlay"
           role="presentation"
-          onClick={(ev) => !creating && ev.target === ev.currentTarget && setCreateModalOpen(false)}
         >
           <div className="modal-box api-key-modal create-plan-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -203,6 +261,33 @@ export default function PlansPage() {
               <p>Select property, fiscal year, and plan type.</p>
             </div>
             <form className="modal-body coa-form" onSubmit={onCreatePlan}>
+              {createAlert && (
+                <div className={`plans-inline-alert plans-inline-alert-modal plans-inline-alert-${createAlert.type}`}>
+                  <div className="plans-inline-alert-message">{createAlert.message}</div>
+                  <div className="plans-inline-alert-actions">
+                    {createAlert.existingPlanId != null && (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => {
+                          setCreateModalOpen(false);
+                          setCreateProgress(0);
+                          navigate(`/plans/${createAlert.existingPlanId}`);
+                        }}
+                      >
+                        Open existing plan
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setCreateAlert(null)}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
               <label className="coa-field">
                 Property
                 <select
@@ -267,6 +352,40 @@ export default function PlansPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div
+          className="modal-overlay"
+          role="presentation"
+        >
+          <div className="modal-box api-key-modal create-plan-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Delete plan</h2>
+              <p>
+                Are you sure you want to delete <strong>{deleteTarget.name}</strong>? This plan will be hidden.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn-secondary"
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={Boolean(deletingPlanId)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                type="button"
+                onClick={confirmDeletePlan}
+                disabled={Boolean(deletingPlanId)}
+              >
+                {deletingPlanId ? "Deleting..." : "Confirm Delete"}
+              </button>
+            </div>
           </div>
         </div>
       )}

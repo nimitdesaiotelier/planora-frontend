@@ -20,7 +20,15 @@ export async function createPlan(payload) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`Create plan failed: ${res.status} ${await res.text()}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    const err = new Error(data.error || `Create plan failed: ${res.status}`);
+    if (data?.existingPlanId != null) {
+      err.existingPlanId = data.existingPlanId;
+    }
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 }
 
