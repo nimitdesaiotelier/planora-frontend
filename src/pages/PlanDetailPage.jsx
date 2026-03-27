@@ -158,6 +158,7 @@ export default function PlanDetailPage() {
           planId={planId}
           row={aiModal.row}
           fiscalYear={planMeta?.fiscalYear}
+          planType={planMeta?.planType}
           onApply={handleApply}
           onClose={() => setAiModal(null)}
         />
