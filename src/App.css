@@ -1053,22 +1053,71 @@ body {
 
 /* ===== ASK PLAN MODAL ===== */
 .ask-plan-modal {
-  max-width: 980px;
+  width: min(1400px, 90vw);
+  height: 90vh;
+  max-width: none;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.ask-plan-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.ask-plan-top {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.ask-plan-top .modal-header {
+  border-bottom: none;
+}
+
+.ask-plan-middle {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ask-plan-bottom {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+}
+
+.ask-plan-bottom .quick-actions {
+  border-bottom: 1px solid var(--border);
+}
+
+.ask-plan-bottom .prompt-area {
+  border-bottom: none;
 }
 
 .ask-plan-result-table-wrap {
-  max-height: 420px;
+  max-height: min(52vh, 560px);
   overflow: auto;
 }
 
 .ask-plan-result-table {
-  min-width: 860px;
+  min-width: 1300px;
+}
+
+.ask-plan-result-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .ask-plan-result-table th:first-child,
 .ask-plan-result-table td:first-child {
   text-align: left;
-  min-width: 220px;
+  min-width: 160px;
 }
 
 .ask-plan-result-table th:nth-child(2),
@@ -1078,8 +1127,46 @@ body {
   text-align: left;
 }
 
+.ask-plan-result-table th:nth-child(3),
+.ask-plan-result-table td:nth-child(3) {
+  min-width: 240px;
+}
+
+.ask-plan-result-table th:nth-child(4),
+.ask-plan-result-table td:nth-child(4),
+.ask-plan-result-table th:nth-child(5),
+.ask-plan-result-table td:nth-child(5) {
+  text-align: left;
+  min-width: 130px;
+}
+
+.ask-plan-group-row td {
+  background: rgba(108, 99, 255, 0.1);
+  color: var(--accent2);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-top: 1px solid rgba(108, 99, 255, 0.4);
+  border-bottom: 1px solid rgba(108, 99, 255, 0.25);
+}
+
 .ask-plan-month-table {
   margin: 8px 0;
+}
+
+@media (max-width: 980px) {
+  .ask-plan-modal {
+    width: calc(100vw - 20px);
+    height: calc(100vh - 20px);
+    max-height: calc(100vh - 20px);
+  }
+
+  .ask-plan-bottom .quick-actions,
+  .ask-plan-bottom .prompt-area {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
 }
 
 /* ===== BUTTONS ===== */
