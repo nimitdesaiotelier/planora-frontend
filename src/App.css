@@ -418,6 +418,12 @@ body {
   font-weight: 700;
 }
 
+.department-parent-indent {
+  display: inline-flex;
+  align-items: center;
+  padding-left: 18px;
+}
+
 .group-parent-row td {
   background: rgba(108, 99, 255, 0.08);
   border-bottom: 1px solid rgba(42, 49, 72, 0.5);
@@ -437,8 +443,8 @@ body {
 }
 
 .nested-child-row .coa-code-cell {
-  color: var(--text3) !important;
-  padding-left: 8px;
+  color: var(--text) !important;
+  padding-left: 0;
 }
 
 .dept-child-row .department-parent-cell {
@@ -460,11 +466,6 @@ body {
   min-width: 28px;
   padding: 9px 0 !important;
   vertical-align: middle;
-  min-height: 38px;
-}
-
-.label-cell.coa-code-cell {
-  min-height: 38px;
 }
 
 .nested-child-label {
@@ -1464,8 +1465,14 @@ button.linkish:hover { color: var(--accent2); }
 }
 
 .coa-code-cell {
-  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-family: inherit;
   font-size: 13px;
+  color: var(--text) !important;
+  text-align: left !important;
+}
+
+.nested-child-code {
+  color: var(--text) !important;
 }
 
 .coa-name-cell {
