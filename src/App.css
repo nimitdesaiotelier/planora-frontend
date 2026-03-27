@@ -892,6 +892,39 @@ body {
   flex-shrink: 0;
 }
 
+.ask-plan-analysis-block {
+  margin-top: 16px;
+}
+
+.ask-plan-analysis-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text3);
+  padding: 4px 0 8px;
+}
+
+.ask-plan-analysis-error {
+  margin-top: 0;
+}
+
+.ask-plan-analysis-points {
+  margin: 0;
+  padding-left: 1.15rem;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text2);
+}
+
+.ask-plan-analysis-points li {
+  margin-bottom: 6px;
+}
+
+.ask-plan-analysis-points li:last-child {
+  margin-bottom: 0;
+}
+
 .json-output {
   background: var(--bg);
   border: 1px solid var(--border);

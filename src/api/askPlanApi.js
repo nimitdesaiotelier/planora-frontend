@@ -91,12 +91,54 @@ export async function askPlan({
 }
 
 /**
+ * Sends the current ask-plan response (same table as the UI) to the AI for a 1–5 point summary.
+ * @param {object} params
+ * @param {string} params.provider - "gemini" | "openai"
+ * @param {string} params.question - user question used for context
+ * @param {object} params.response - full ask-plan JSON ({@link askPlan} result)
+ * @returns {Promise<{ points: string[] }>}
+ */
+export async function analyzeAskPlanResult({ provider, question, response }) {
+  const safeProvider = cleanOptionalString(provider);
+  const safeQuestion = cleanOptionalString(question);
+  if (!safeProvider) {
+    throw new Error("Provider is required.");
+  }
+  if (!safeQuestion) {
+    throw new Error("Question is required.");
+  }
+  if (!response || typeof response !== "object") {
+    throw new Error("response is required.");
+  }
+
+  const res = await fetch(`${API_BASE}/api/ai/ask-plan/analyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      provider: safeProvider,
+      question: safeQuestion,
+      response,
+    }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || `Analysis failed (${res.status})`);
+  }
+  return data;
+}
+
+/**
  * POSTs the ask-plan JSON; the server builds title rows from {@code meta.basePlanId} and the plan record.
  * @param {object} [options]
  * @param {boolean} [options.includeChart] - when true, workbook includes a monthly line chart
+ * @param {string[]} [options.analysisPoints] - optional AI bullets (same as UI); written after chart if any, else after table
  */
 export async function exportAskPlanExcel(response, options = {}) {
   const body = { response, includeChart: Boolean(options.includeChart) };
+  if (Array.isArray(options.analysisPoints) && options.analysisPoints.length > 0) {
+    body.analysisPoints = options.analysisPoints.map((p) => String(p).trim()).filter(Boolean);
+  }
   const res = await fetch(`${API_BASE}/api/ai/ask-plan/export-xlsx`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
