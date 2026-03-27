@@ -1,6 +1,8 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { analyzeAskPlanResult, askPlan, exportAskPlanExcel } from "../api/askPlanApi";
 import { MONTHS } from "../data/budgetData";
+import AskPlanChartView from "./AskPlanChartView";
+import { buildAskPlanLineBarSeries, buildAskPlanPieData } from "./askPlanChartData";
 
 const QUICK_PROMPTS = [
   "Show top 5 Revenue and Expense line items",
@@ -54,7 +56,7 @@ function MonthValuesTable({ baseValues, compareValues, actualValues, showCompare
 }
 
 export default function AskPlanModal({ planId, planScope, onClose }) {
-  const [provider, setProvider] = useState("gemini");
+  const [provider, setProvider] = useState("openai");
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -64,6 +66,9 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
   const [expandedLineKeys, setExpandedLineKeys] = useState({});
+  const [showIntentJson, setShowIntentJson] = useState(false);
+  /** When API requests a chart, user can switch between chart and table */
+  const [resultView, setResultView] = useState("chart");
 
   const titlePlanName = planScope?.planName?.trim() || "Plan";
   const titleFy =
@@ -76,12 +81,33 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
   const showActuals = compareMode === "actuals" || Boolean(response?.appliedFilters?.includeActuals);
 
   const hasRows = Array.isArray(response?.resultRows) && response.resultRows.length > 0;
+  const showNoDataInfo = Boolean(response) && !hasRows;
+  const suggestedPlans = useMemo(
+    () => (Array.isArray(response?.meta?.suggestedPlans) ? response.meta.suggestedPlans : []),
+    [response]
+  );
   const tableColSpan = (showCompare ? 9 : 7) + (showActuals ? 2 : 0);
 
   const showAnalysisSection =
     hasRows && (analysisLoading || analysisError || (analysisPoints != null && analysisPoints.length > 0));
 
   const canRun = useMemo(() => question.trim().length > 0, [question]);
+  const responseMessage = useMemo(
+    () => response?.summary || response?.message || response?.meta?.message || "",
+    [response]
+  );
+  const parsedIntentJson = useMemo(() => {
+    if (!response) return "";
+    return JSON.stringify(
+      {
+        intent: response.intent ?? null,
+        appliedFilters: response.appliedFilters ?? null,
+        meta: response.meta ?? null,
+      },
+      null,
+      2
+    );
+  }, [response]);
   const groupedRows = useMemo(() => {
     if (!hasRows) return RESULT_SECTIONS.map((s) => ({ ...s, rows: [] }));
 
@@ -111,6 +137,31 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
     [groupedRows]
   );
 
+  const chartTypeNormalized = String(response?.meta?.chartType || "").toLowerCase();
+  const chartOn = Boolean(response?.meta?.isChart);
+  const chartTypeSupported = ["bar", "line", "pie"].includes(chartTypeNormalized);
+
+  const showChart = useMemo(() => {
+    if (!response || !hasRows || !chartOn || !chartTypeSupported) return false;
+    if (chartTypeNormalized === "pie") {
+      return buildAskPlanPieData(response.resultRows).hasNumeric;
+    }
+    return buildAskPlanLineBarSeries(response.resultRows, showCompare, showActuals).hasNumeric;
+  }, [
+    response,
+    hasRows,
+    chartOn,
+    chartTypeSupported,
+    chartTypeNormalized,
+    showCompare,
+    showActuals,
+  ]);
+
+  useEffect(() => {
+    if (!response) return;
+    setResultView(showChart ? "chart" : "table");
+  }, [response, showChart]);
+
   function toggleExpanded(lineKey) {
     setExpandedLineKeys((prev) => ({ ...prev, [lineKey]: !prev[lineKey] }));
   }
@@ -125,6 +176,7 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
     setAnalysisPoints(null);
     setAnalysisError("");
     setExpandedLineKeys({});
+    setShowIntentJson(false);
 
     try {
       const data = await askPlan({
@@ -158,7 +210,7 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
   }
 
   return (
-    <div className="modal-overlay">
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-box ai-modal ask-plan-modal">
         <div className="ask-plan-shell">
           <div className="ask-plan-top">
@@ -229,53 +281,123 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
                       </div>
                     )}
                   </div>
-                  <div className="month-table-wrapper ask-plan-result-table-wrap">
-                    <table className="month-table ask-plan-result-table">
-                      <thead>
-                        <tr>
-                          <th>Department</th>
-                          <th>COA code</th>
-                          <th>COA name</th>
-                          <th>Account Type</th>
-                          <th>Category</th>
-                          <th>Base Total</th>
-                          {showCompare && <th>Compare Total</th>}
-                          {showCompare && <th>Delta Vs Compare</th>}
-                          {showActuals && <th>Actual Total</th>}
-                          {showActuals && <th>Delta Vs Actual</th>}
-                          <th>Months</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {!hasRows && (
-                          <tr>
-                            <td colSpan={tableColSpan}>No rows returned.</td>
-                          </tr>
-                        )}
-                        {hasRows &&
-                          visibleSections.map((section) => (
-                            <Fragment key={section.key}>
-                              <tr className="ask-plan-group-row">
-                                <td colSpan={tableColSpan}>{section.title}</td>
+
+                  {showNoDataInfo && Boolean(responseMessage) && (
+                    <div className="summary-banner">{responseMessage}</div>
+                  )}
+
+                  {showNoDataInfo && suggestedPlans.length > 0 && (
+                    <div className="ask-plan-suggestions-block">
+                      <div className="result-section-title">Suggested plans</div>
+                      <div className="month-table-wrapper">
+                        <table className="month-table ask-plan-suggestions-table">
+                          <thead>
+                            <tr>
+                              <th>Name</th>
+                              <th>Type</th>
+                              <th>Fiscal Year</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {suggestedPlans.map((plan) => (
+                              <tr key={plan.id ?? `${plan.name}-${plan.fiscalYear}-${plan.planType}`}>
+                                <td>{plan.name ?? "—"}</td>
+                                <td>{plan.planType ?? "—"}</td>
+                                <td>{plan.fiscalYear ?? "—"}</td>
                               </tr>
-                              {section.rows.map((r) => {
-                                const isExpanded = Boolean(expandedLineKeys[r.lineKey]);
-                                return (
-                                  <FragmentRow
-                                    key={r.lineKey}
-                                    row={r}
-                                    isExpanded={isExpanded}
-                                    onToggle={() => toggleExpanded(r.lineKey)}
-                                    showCompare={showCompare}
-                                    showActuals={showActuals}
-                                  />
-                                );
-                              })}
-                            </Fragment>
-                          ))}
-                      </tbody>
-                    </table>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {showChart && (
+                    <div className="ask-plan-view-toggle" role="group" aria-label="Result display">
+                      <button
+                        type="button"
+                        className={`ask-plan-view-toggle-btn ${resultView === "chart" ? "is-active" : ""}`}
+                        onClick={() => setResultView("chart")}
+                      >
+                        Chart view
+                      </button>
+                      <button
+                        type="button"
+                        className={`ask-plan-view-toggle-btn ${resultView === "table" ? "is-active" : ""}`}
+                        onClick={() => setResultView("table")}
+                      >
+                        Table view
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="ask-plan-intent-block">
+                    <button
+                      className="btn-secondary ask-plan-intent-toggle"
+                      type="button"
+                      onClick={() => setShowIntentJson((prev) => !prev)}
+                    >
+                      {showIntentJson ? "Hide AI Parsed Intent (JSON)" : "Show AI Parsed Intent (JSON)"}
+                    </button>
+                    {showIntentJson && <pre className="json-output">{parsedIntentJson || "{}"}</pre>}
                   </div>
+
+                  {showChart && resultView === "chart" ? (
+                    <AskPlanChartView
+                      chartType={chartTypeNormalized}
+                      resultRows={response.resultRows}
+                      showCompare={showCompare}
+                      showActuals={showActuals}
+                    />
+                  ) : (
+                    <div className="month-table-wrapper ask-plan-result-table-wrap">
+                      <table className="month-table ask-plan-result-table">
+                        <thead>
+                          <tr>
+                            <th>Department</th>
+                            <th>COA code</th>
+                            <th>COA name</th>
+                            <th>Account Type</th>
+                            <th>Category</th>
+                            <th>Base Total</th>
+                            {showCompare && <th>Compare Total</th>}
+                            {showCompare && <th>Delta Vs Compare</th>}
+                            {showActuals && <th>Actual Total</th>}
+                            {showActuals && <th>Delta Vs Actual</th>}
+                            <th>Months</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {!hasRows && (
+                            <tr>
+                              <td colSpan={tableColSpan}>No rows returned.</td>
+                            </tr>
+                          )}
+                          {hasRows &&
+                            visibleSections.map((section) => (
+                              <Fragment key={section.key}>
+                                <tr className="ask-plan-group-row">
+                                  <td colSpan={tableColSpan}>{section.title}</td>
+                                </tr>
+                                {section.rows.map((r) => {
+                                  const isExpanded = Boolean(expandedLineKeys[r.lineKey]);
+                                  return (
+                                    <FragmentRow
+                                      key={r.lineKey}
+                                      row={r}
+                                      isExpanded={isExpanded}
+                                      onToggle={() => toggleExpanded(r.lineKey)}
+                                      showCompare={showCompare}
+                                      showActuals={showActuals}
+                                    />
+                                  );
+                                })}
+                              </Fragment>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
                   {showAnalysisSection && (
                     <div className="ask-plan-analysis-block">
