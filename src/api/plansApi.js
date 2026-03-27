@@ -14,6 +14,21 @@ export async function fetchPlans(propertyId) {
   return res.json();
 }
 
+export async function createPlan(payload) {
+  const res = await fetch(url("/api/plans"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`Create plan failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+export async function deletePlan(planId) {
+  const res = await fetch(url(`/api/plans/${planId}`), { method: "DELETE" });
+  if (!res.ok) throw new Error(`Delete plan failed: ${res.status} ${await res.text()}`);
+}
+
 export async function fetchProperties(organizationId) {
   const qs =
     organizationId != null
@@ -34,6 +49,8 @@ export async function fetchLineItems(planId) {
 export function lineItemToRow(dto) {
   return {
     id: dto.id,
+    coaCode: dto.coaCode ?? dto.lineKey,
+    coaName: dto.coaName ?? dto.label,
     lineKey: dto.lineKey,
     department: dto.department,
     type: dto.type,
@@ -45,11 +62,15 @@ export function lineItemToRow(dto) {
   };
 }
 
-export async function patchLineItemValues(planId, lineItemId, values) {
+/**
+ * @param {object} body - { values } or { values, dailyDetails }. When dailyDetails is set, the server
+ *   stores dailies and sets month totals from the sum of each month’s days.
+ */
+export async function patchLineItemValues(planId, lineItemId, body) {
   const res = await fetch(url(`/api/plans/${planId}/line-items/${lineItemId}`), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ values }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Save failed: ${res.status} ${await res.text()}`);
   return res.json();

@@ -279,16 +279,21 @@ body {
 .budget-table th.col-dept,
 .budget-table th.col-type { text-align: left; min-width: 100px; font-size: 10px; }
 .budget-table th.col-label { text-align: left; min-width: 160px; }
+.budget-table th.col-tree { text-align: center; width: 28px; min-width: 28px; }
 .budget-table th.col-action { text-align: center; width: 50px; }
 .budget-table th.col-total { color: var(--text2); }
 
 .budget-table td {
   padding: 9px 12px;
   text-align: right;
-  border-bottom: 1px solid rgba(42, 49, 72, 0.5);
+  border-bottom: 1px solid var(--border);
   font-size: 13px;
   color: var(--text2);
   white-space: nowrap;
+}
+
+.budget-table tbody tr:last-child td {
+  border-bottom: 1px solid var(--border);
 }
 
 /* Section headers */
@@ -387,6 +392,108 @@ body {
 }
 
 .subtotal-row td:first-child { text-align: left; }
+
+.group-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  border-radius: 6px;
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.group-toggle-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent2);
+}
+
+.department-parent-cell {
+  font-weight: 700;
+}
+
+.group-parent-row td {
+  background: rgba(108, 99, 255, 0.08);
+  border-bottom: 1px solid rgba(42, 49, 72, 0.5);
+}
+
+.tree-section-parent td {
+  text-align: left !important;
+}
+
+.section-toggle-btn {
+  margin-right: 10px;
+}
+
+.nested-child-row td {
+  background: rgba(255, 255, 255, 0.015);
+  border-bottom: 1px solid rgba(42, 49, 72, 0.5);
+}
+
+.nested-child-row .coa-code-cell {
+  color: var(--text3) !important;
+  padding-left: 8px;
+}
+
+.dept-child-row .department-parent-cell {
+  position: relative;
+}
+
+.tree-indent {
+  display: inline-block;
+}
+
+.tree-indent-level-1 {
+  width: 14px;
+}
+
+.nested-shift-empty {
+  background: transparent !important;
+  text-align: center !important;
+  width: 28px;
+  min-width: 28px;
+  padding: 9px 0 !important;
+  vertical-align: middle;
+  min-height: 38px;
+}
+
+.label-cell.coa-code-cell {
+  min-height: 38px;
+}
+
+.nested-child-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 18px;
+}
+
+.nested-child-branch {
+  display: none;
+}
+
+.nested-child-code {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding-left: 14px;
+}
+
+.group-toggle-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border-color: rgba(108, 99, 255, 0.35);
+  background: rgba(108, 99, 255, 0.12);
+  color: var(--accent2);
+}
 
 /* NOP row */
 .nop-row td {
@@ -809,6 +916,16 @@ body {
   font-weight: 500;
 }
 
+.warning-banner {
+  margin-top: 10px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text);
+}
+
 /* Before / After */
 .before-after {
   display: flex;
@@ -1047,9 +1164,23 @@ body {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+.plan-card-link {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+
 .plan-card:hover {
   border-color: var(--accent);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.plan-card-actions {
+  margin-top: 6px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .plan-card-type {
@@ -1166,6 +1297,7 @@ button.linkish:hover { color: var(--accent2); }
   color: var(--text2);
   font-size: 13px;
   line-height: 1.35;
+  text-align: left !important;
 }
 
 /* ===== SORT / FILTER TABLE (generic) ===== */
@@ -1265,6 +1397,11 @@ button.linkish:hover { color: var(--accent2); }
   position: relative;
 }
 
+.create-plan-modal {
+  max-width: 520px;
+  position: relative;
+}
+
 .coa-modal .modal-header {
   text-align: left;
 }
@@ -1335,6 +1472,31 @@ button.linkish:hover { color: var(--accent2); }
   color: var(--text2);
 }
 
+.create-progress-wrap {
+  margin-top: 8px;
+}
+
+.create-progress-label {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--text2);
+}
+
+.create-progress-track {
+  height: 10px;
+  width: 100%;
+  border-radius: 999px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.create-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  transition: width 0.2s ease;
+}
+
 .coa-code-cell {
   font-family: ui-monospace, "Cascadia Code", monospace;
   font-size: 13px;
@@ -1344,6 +1506,7 @@ button.linkish:hover { color: var(--accent2); }
   color: var(--text);
   font-size: 13px;
   max-width: 280px;
+  text-align: left !important;
 }
 
 /* ===== SCROLLBAR ===== */

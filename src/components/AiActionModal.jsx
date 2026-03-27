@@ -10,7 +10,13 @@ const LINE_ITEM_QUICK_ACTIONS = [
   { label: "Copy prior-year budget", prompt: "Set equal to last year budget" },
 ];
 
-export default function AiActionModal({ planId, row, onApply, onClose }) {
+function parseFiscalYear(fy) {
+  if (fy == null || fy === "") return null;
+  const n = Number(fy);
+  return Number.isFinite(n) ? n : null;
+}
+
+export default function AiActionModal({ planId, row, fiscalYear, onApply, onClose }) {
   const quickActions = LINE_ITEM_QUICK_ACTIONS;
   const promptPlaceholder = 'e.g. "Increase by 12% for Q2"';
   const effectiveRow = row;
@@ -19,7 +25,7 @@ export default function AiActionModal({ planId, row, onApply, onClose }) {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState(null); // { raw, parsed, newValues }
+  const [result, setResult] = useState(null); // { raw, parsed, newValues, newDailyDetails }
 
   if (!effectiveRow) return null;
 
@@ -36,11 +42,20 @@ export default function AiActionModal({ planId, row, onApply, onClose }) {
         text,
         effectiveRow.values,
         planId,
-        effectiveRow.lineKey
+        effectiveRow.lineKey,
+        {
+          fiscalYear: parseFiscalYear(fiscalYear),
+          lineItemType: effectiveRow.type ?? null,
+          dailyDetails:
+            effectiveRow.dailyDetails && Object.keys(effectiveRow.dailyDetails).length > 0
+              ? effectiveRow.dailyDetails
+              : null,
+        }
       );
       const parsed = normalizeParsedForTransform(raw);
       const newValues = raw.newValues ?? {};
-      setResult({ raw, parsed, newValues });
+      const newDailyDetails = raw.newDailyDetails ?? null;
+      setResult({ raw, parsed, newValues, newDailyDetails });
     } catch (err) {
       setError(err.message || "AI request failed. Configure keys on the server.");
     } finally {
@@ -50,7 +65,11 @@ export default function AiActionModal({ planId, row, onApply, onClose }) {
 
   function handleApply() {
     if (!result || effectiveRow.id == null || !onApply) return;
-    onApply(effectiveRow.id, result.newValues, result.parsed.summary);
+    const body =
+      result.newDailyDetails != null
+        ? { values: result.newValues, dailyDetails: result.newDailyDetails }
+        : { values: result.newValues };
+    onApply(effectiveRow.id, body, result.parsed.summary);
   }
 
   const beforeTotal = rowTotal(effectiveRow.values);
@@ -135,6 +154,9 @@ export default function AiActionModal({ planId, row, onApply, onClose }) {
             </div>
 
             <div className="summary-banner">💬 {result.parsed.summary}</div>
+            {result.parsed.warnings?.length > 0 && (
+              <div className="warning-banner">⚠️ {result.parsed.warnings.join(" ")}</div>
+            )}
 
             <div className="before-after">
               <div className="ba-card before">

@@ -1,6 +1,18 @@
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
-export async function parseBudgetInstruction(provider, rowLabel, instruction, values, planId, lineKey) {
+/**
+ * @param {object} [opts] - optional context for daily preview: fiscalYear, lineItemType, dailyDetails
+ */
+export async function parseBudgetInstruction(
+  provider,
+  rowLabel,
+  instruction,
+  values,
+  planId,
+  lineKey,
+  opts = {}
+) {
+  const { fiscalYear = null, lineItemType = null, dailyDetails = null } = opts;
   const res = await fetch(`${API_BASE}/api/ai/parse-instruction`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -11,6 +23,9 @@ export async function parseBudgetInstruction(provider, rowLabel, instruction, va
       values,
       planId: Number(planId),
       lineKey,
+      dailyDetails,
+      fiscalYear,
+      lineItemType,
     }),
   });
   const data = await res.json().catch(() => ({}));
@@ -21,7 +36,7 @@ export async function parseBudgetInstruction(provider, rowLabel, instruction, va
 }
 
 /**
- * Normalizes API response for UI. Backend returns { summary, instructions[], newValues }.
+ * Normalizes API response for UI. Backend returns { summary, instructions[], newValues, newDailyDetails? }.
  */
 export function normalizeParsedForTransform(raw) {
   let instructions = raw.instructions;
@@ -47,5 +62,6 @@ export function normalizeParsedForTransform(raw) {
       .filter(Boolean)
       .join(" · ") ||
     "";
-  return { summary, instructions };
+  const warnings = Array.isArray(raw.warnings) ? raw.warnings.filter(Boolean) : [];
+  return { summary, instructions, warnings };
 }

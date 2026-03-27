@@ -36,6 +36,7 @@ function buildActualsColumns() {
       accessor: (r) => r.coaCode,
       sortable: true,
       filterable: true,
+      thClassName: "col-label",
       tdClassName: "label-cell coa-code-cell",
     },
     {
@@ -44,6 +45,7 @@ function buildActualsColumns() {
       accessor: (r) => r.coaName ?? "",
       sortable: true,
       filterable: true,
+      thClassName: "col-label",
       tdClassName: "actuals-coa-name",
       renderCell: (r) => (r.coaName?.trim() ? r.coaName : "—"),
     },
@@ -64,6 +66,7 @@ function buildActualsColumns() {
     accessor: (r) => (Array.isArray(r.dailyDetails) ? r.dailyDetails.length : 0),
     sortable: true,
     filterable: true,
+    thClassName: "col-total",
     tdClassName: "daily-preview",
     renderCell: (r) =>
       Array.isArray(r.dailyDetails) ? `${r.dailyDetails.length} values` : "—",
@@ -255,7 +258,7 @@ export default function ActualsPage() {
           <Link to="/coa" className="actuals-coa-link">
             Chart of accounts
           </Link>{" "}
-          for this property. Columns B–M = Jan–Dec; optional columns N+ = daily values. Use{" "}
+          for this property. Column B is <strong>COA name</strong>, columns C–N = Jan–Dec, and optional columns O+ are daily values. Use{" "}
           <strong>Export</strong> for the exact upload format (headers only if there is no data yet). Re-importing
           the same file after export updates existing rows by COA code — no separate template.
         </p>
