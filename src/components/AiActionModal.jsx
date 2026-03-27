@@ -16,7 +16,7 @@ function parseFiscalYear(fy) {
   return Number.isFinite(n) ? n : null;
 }
 
-export default function AiActionModal({ planId, row, fiscalYear, onApply, onClose }) {
+export default function AiActionModal({ planId, row, fiscalYear, planType, onApply, onClose }) {
   const quickActions = LINE_ITEM_QUICK_ACTIONS;
   const promptPlaceholder = 'e.g. "Increase by 12% for Q2"';
   const effectiveRow = row;
@@ -52,6 +52,7 @@ export default function AiActionModal({ planId, row, fiscalYear, onApply, onClos
             effectiveRow.dailyDetails && Object.keys(effectiveRow.dailyDetails).length > 0
               ? effectiveRow.dailyDetails
               : null,
+          planType: planType ?? null,
         }
       );
       const parsed = normalizeParsedForTransform(raw);
