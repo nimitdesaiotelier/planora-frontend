@@ -1,7 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { askPlan } from "../api/askPlanApi";
 import { MONTHS } from "../data/budgetData";
-import BudgetTable from "./BudgetTable";
 
 const QUICK_PROMPTS = [
   "Show top 5 Revenue and Expense line items",
@@ -10,59 +9,40 @@ const QUICK_PROMPTS = [
   "Compare Statistics items with Budget 2025",
 ];
 
-const BUDGET_TYPES = new Set(["Revenue", "Expense", "Statistics"]);
-
-function normalizeMonthValues(baseValues) {
-  return Object.fromEntries(MONTHS.map((m) => [m, Number(baseValues?.[m]) || 0]));
+function formatAmount(value) {
+  if (value == null || Number.isNaN(Number(value))) return "—";
+  return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-/** Maps ask-plan API resultRows to BudgetTable row shape (same as plan detail grid). */
-function askPlanResultRowsToBudgetRows(resultRows, turnId) {
-  if (!Array.isArray(resultRows)) return [];
-  return resultRows.map((r, idx) => {
-    const type = BUDGET_TYPES.has(r.type) ? r.type : "Expense";
-    return {
-      id: `${turnId}-${r.lineKey}-${idx}`,
-      lineKey: r.lineKey,
-      coaCode: r.lineKey ?? "",
-      coaName: r.label ?? "",
-      label: r.label ?? "",
-      department: (r.category ?? "").trim() || "Unassigned",
-      type,
-      category: r.category ?? "",
-      values: normalizeMonthValues(r.baseValues),
-      dailyDetails: {},
-      actualsValues: {},
-    };
-  });
+function formatDelta(value) {
+  if (value == null || Number.isNaN(Number(value))) return "—";
+  const numeric = Number(value);
+  return `${numeric > 0 ? "+" : ""}${formatAmount(numeric)}`;
 }
 
-function AskPlanTurnAnswer({ turnId, response }) {
-  const hasRows = Array.isArray(response?.resultRows) && response.resultRows.length > 0;
-  const budgetRows = useMemo(
-    () => (hasRows ? askPlanResultRowsToBudgetRows(response.resultRows, turnId) : []),
-    [hasRows, response?.resultRows, turnId]
-  );
-
-  if (!hasRows) {
-    return (
-      <div className="ask-plan-turn-answer">
-        <div className="result-section">
-          <div className="result-section-title">Results</div>
-          <p className="ask-plan-no-rows">No rows returned.</p>
-        </div>
-      </div>
-    );
-  }
-
+function MonthValuesTable({ baseValues, compareValues, actualValues, showCompare, showActuals }) {
   return (
-    <div className="ask-plan-turn-answer ask-plan-turn-answer--budget">
-      <div className="result-section">
-        <div className="result-section-title">Results</div>
-        <div className="ask-plan-budget-wrap">
-          <BudgetTable rows={budgetRows} showAiColumn={false} lastUpdated={null} />
-        </div>
-      </div>
+    <div className="month-table-wrapper ask-plan-month-table">
+      <table className="month-table">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Base</th>
+            {showCompare && <th>Compare</th>}
+            {showActuals && <th>Actual</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {MONTHS.map((m) => (
+            <tr key={m}>
+              <td>{m}</td>
+              <td>{formatAmount(baseValues?.[m])}</td>
+              {showCompare && <td>{formatAmount(compareValues?.[m])}</td>}
+              {showActuals && <td>{formatAmount(actualValues?.[m])}</td>}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -72,9 +52,8 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [history, setHistory] = useState([]);
-  const [isClosing, setIsClosing] = useState(false);
-  const closingRef = useRef(false);
+  const [response, setResponse] = useState(null);
+  const [expandedLineKeys, setExpandedLineKeys] = useState({});
 
   const titlePlanName = planScope?.planName?.trim() || "Plan";
   const titleFy =
@@ -82,33 +61,26 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
       ? planScope.fiscalYear
       : null;
 
+  const compareMode = response?.appliedFilters?.compareMode || "none";
+  const showCompare = compareMode === "plan";
+  const showActuals = compareMode === "actuals" || Boolean(response?.appliedFilters?.includeActuals);
+
+  const hasRows = Array.isArray(response?.resultRows) && response.resultRows.length > 0;
+
   const canRun = useMemo(() => question.trim().length > 0, [question]);
 
-  function requestClose() {
-    if (closingRef.current) return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced) {
-      onClose();
-      return;
-    }
-    closingRef.current = true;
-    setIsClosing(true);
+  function toggleExpanded(lineKey) {
+    setExpandedLineKeys((prev) => ({ ...prev, [lineKey]: !prev[lineKey] }));
   }
 
-  function handlePanelAnimationEnd(e) {
-    if (e.target !== e.currentTarget) return;
-    if (!closingRef.current) return;
-    if (e.animationName !== "askPlanPanelOut") return;
-    closingRef.current = false;
-    onClose();
-  }
-
-  async function runAskPlan() {
-    const finalQuestion = question.trim();
+  async function runAskPlan(overrideQuestion) {
+    const finalQuestion = (overrideQuestion ?? question).trim();
     if (!finalQuestion) return;
 
     setLoading(true);
     setError("");
+    setResponse(null);
+    setExpandedLineKeys({});
 
     try {
       const data = await askPlan({
@@ -116,8 +88,7 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
         question: finalQuestion,
         basePlanId: Number(planId),
       });
-      const id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `turn-${Date.now()}`;
-      setHistory((h) => [...h, { id, question: finalQuestion, response: data }]);
+      setResponse(data);
     } catch (err) {
       setError(err.message || "Ask plan failed.");
     } finally {
@@ -125,120 +96,163 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
     }
   }
 
-  const showEmptyHint = history.length === 0 && !loading && !error;
-
   return (
-    <div
-      className={`modal-overlay ask-plan-overlay${isClosing ? " ask-plan-overlay--exit" : ""}`}
-      onClick={(e) => {
-        if (isClosing) return;
-        if (e.target === e.currentTarget) requestClose();
-      }}
-    >
-      <div
-        className="modal-box ai-modal ask-plan-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="ask-plan-title"
-        onClick={(e) => e.stopPropagation()}
-        onAnimationEnd={handlePanelAnimationEnd}
-      >
-        <div className="ask-plan-modal-header modal-header">
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box ai-modal ask-plan-modal">
+        <div className="modal-header">
           <div className="row-badge">Plan</div>
-          <h2 id="ask-plan-title">
+          <h2>
             ✨ Ask Plan — <span className="row-name">{titlePlanName}</span>
             {titleFy != null && <span className="plan-ai-title-year">, FY {titleFy}</span>}
           </h2>
-          <button className="close-btn" type="button" onClick={requestClose} disabled={isClosing} aria-label="Close">
+          <button className="close-btn" type="button" onClick={onClose}>
             ✕
           </button>
         </div>
 
-        <div className="ask-plan-main">
-          <div className="ask-plan-results-scroll" aria-label="Ask plan results">
-            {showEmptyHint && (
-              <div className="ask-plan-empty">Ask a question below to see results here.</div>
-            )}
-            {history.map((entry) => (
-              <article key={entry.id} className="ask-plan-turn">
-                <div className="ask-plan-turn-question">
-                  <span className="ask-plan-turn-label">Question</span>
-                  <p className="ask-plan-turn-text">{entry.question}</p>
-                </div>
-                <AskPlanTurnAnswer turnId={entry.id} response={entry.response} />
-              </article>
-            ))}
-            {(loading || error) && (
-              <div
-                className={`ask-plan-trailing-status${history.length > 0 ? " ask-plan-trailing-status--after-history" : ""}`}
-              >
-                {loading && (
-                  <div className="ask-plan-loading">
-                    <span className="spinner" aria-hidden />
-                    <span>Thinking…</span>
-                  </div>
-                )}
-                {error && <div className="error-banner ask-plan-results-error">⚠️ {error}</div>}
-              </div>
-            )}
-          </div>
+        <div className="ai-provider-row">
+          <span className="quick-label">Model</span>
+          <select
+            className="provider-select"
+            value={provider}
+            onChange={(e) => setProvider(e.target.value)}
+            disabled={loading}
+          >
+            <option value="gemini">Gemini (server key)</option>
+            <option value="openai">OpenAI (server key)</option>
+          </select>
         </div>
 
-        <div className="ask-plan-modal-footer">
-          <div className="ai-provider-row">
-            <span className="quick-label">Model</span>
-            <select
-              className="provider-select"
-              value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-              disabled={loading || isClosing}
-            >
-              <option value="gemini">Gemini (server key)</option>
-              <option value="openai">OpenAI (server key)</option>
-            </select>
-          </div>
-
-          <div className="quick-actions">
-            <span className="quick-label">Examples:</span>
-            {QUICK_PROMPTS.map((q) => (
-              <button
-                key={q}
-                className="quick-btn"
-                type="button"
-                onClick={() => setQuestion(q)}
-                disabled={loading || isClosing}
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-
-          <div className="prompt-area">
-            <textarea
-              className="prompt-input"
-              placeholder='e.g. "Show top 5 Revenue and Expense line items"'
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              rows={2}
-              disabled={isClosing}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  runAskPlan();
-                }
-              }}
-            />
+        <div className="quick-actions">
+          <span className="quick-label">Examples:</span>
+          {QUICK_PROMPTS.map((q) => (
             <button
-              className="btn-primary run-btn"
+              key={q}
+              className="quick-btn"
               type="button"
-              onClick={runAskPlan}
-              disabled={loading || !canRun || isClosing}
+              onClick={() => {
+                setQuestion(q);
+                runAskPlan(q);
+              }}
+              disabled={loading}
             >
-              {loading ? <span className="spinner" /> : "Ask Plan →"}
+              {q}
             </button>
-          </div>
+          ))}
         </div>
+
+        <div className="prompt-area">
+          <textarea
+            className="prompt-input"
+            placeholder='e.g. "Show top 5 Revenue and Expense line items"'
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            rows={2}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                runAskPlan();
+              }
+            }}
+          />
+          <button className="btn-primary run-btn" type="button" onClick={() => runAskPlan()} disabled={loading || !canRun}>
+            {loading ? <span className="spinner" /> : "Ask Plan →"}
+          </button>
+        </div>
+
+        {error && <div className="error-banner">⚠️ {error}</div>}
+
+        {response && (
+          <div className="result-panel">
+            <div className="result-section">
+              <div className="result-section-title">Result Rows</div>
+              <div className="month-table-wrapper ask-plan-result-table-wrap">
+                <table className="month-table ask-plan-result-table">
+                  <thead>
+                    <tr>
+                      <th>Label</th>
+                      <th>Type</th>
+                      <th>Category</th>
+                      <th>Base Total</th>
+                      {showCompare && <th>Compare Total</th>}
+                      {showCompare && <th>Delta Vs Compare</th>}
+                      {showActuals && <th>Actual Total</th>}
+                      {showActuals && <th>Delta Vs Actual</th>}
+                      <th>Months</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!hasRows && (
+                      <tr>
+                        <td colSpan={showCompare ? (showActuals ? 9 : 7) : showActuals ? 7 : 5}>
+                          No rows returned.
+                        </td>
+                      </tr>
+                    )}
+                    {hasRows &&
+                      response.resultRows.map((r) => {
+                        const isExpanded = Boolean(expandedLineKeys[r.lineKey]);
+                        return (
+                          <FragmentRow
+                            key={r.lineKey}
+                            row={r}
+                            isExpanded={isExpanded}
+                            onToggle={() => toggleExpanded(r.lineKey)}
+                            showCompare={showCompare}
+                            showActuals={showActuals}
+                          />
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn-secondary" type="button" onClick={onClose}>
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+function FragmentRow({ row, isExpanded, onToggle, showCompare, showActuals }) {
+  const columns = showCompare ? (showActuals ? 9 : 7) : showActuals ? 7 : 5;
+
+  return (
+    <>
+      <tr>
+        <td>{row.label}</td>
+        <td>{row.type}</td>
+        <td>{row.category}</td>
+        <td>{formatAmount(row.baseTotal)}</td>
+        {showCompare && <td>{formatAmount(row.compareTotal)}</td>}
+        {showCompare && <td className={Number(row.deltaVsCompare) > 0 ? "pos-delta" : Number(row.deltaVsCompare) < 0 ? "neg-delta" : ""}>{formatDelta(row.deltaVsCompare)}</td>}
+        {showActuals && <td>{formatAmount(row.actualTotal)}</td>}
+        {showActuals && <td className={Number(row.deltaVsActual) > 0 ? "pos-delta" : Number(row.deltaVsActual) < 0 ? "neg-delta" : ""}>{formatDelta(row.deltaVsActual)}</td>}
+        <td>
+          <button type="button" className="quick-btn" onClick={onToggle}>
+            {isExpanded ? "Hide" : "Show"}
+          </button>
+        </td>
+      </tr>
+      {isExpanded && (
+        <tr>
+          <td colSpan={columns}>
+            <MonthValuesTable
+              baseValues={row.baseValues}
+              compareValues={row.compareValues}
+              actualValues={row.actualValues}
+              showCompare={showCompare}
+              showActuals={showActuals}
+            />
+          </td>
+        </tr>
+      )}
+    </>
   );
 }

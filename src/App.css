@@ -994,207 +994,34 @@ body {
 }
 
 /* ===== ASK PLAN MODAL ===== */
-@keyframes askPlanOverlayIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes askPlanOverlayOut {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
-@keyframes askPlanPanelIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes askPlanPanelOut {
-  from {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(8px) scale(0.985);
-  }
-}
-
-.ask-plan-overlay {
-  padding: 5vmin;
-  animation: askPlanOverlayIn 0.22s ease-out forwards;
-}
-
-.ask-plan-overlay > .ask-plan-modal {
-  animation: askPlanPanelIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.ask-plan-overlay.ask-plan-overlay--exit {
-  animation: askPlanOverlayOut 0.2s ease-in forwards;
-}
-
-.ask-plan-overlay.ask-plan-overlay--exit > .ask-plan-modal {
-  animation: askPlanPanelOut 0.28s cubic-bezier(0.4, 0, 1, 1) forwards;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ask-plan-overlay,
-  .ask-plan-overlay > .ask-plan-modal,
-  .ask-plan-overlay.ask-plan-overlay--exit,
-  .ask-plan-overlay.ask-plan-overlay--exit > .ask-plan-modal {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-  }
-}
-
 .ask-plan-modal {
-  width: 90vw;
-  max-width: min(90vw, 1400px);
-  height: 90vh;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 0;
+  max-width: 980px;
 }
 
-.ask-plan-modal-header {
-  flex-shrink: 0;
-}
-
-.ask-plan-main {
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.ask-plan-empty {
-  font-size: 14px;
-  color: var(--text3);
-  padding: 16px 8px 8px;
-  text-align: center;
-}
-
-.ask-plan-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 20px 16px;
-  color: var(--text2);
-  font-size: 14px;
-}
-
-.ask-plan-results-scroll {
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
+.ask-plan-result-table-wrap {
+  max-height: 420px;
   overflow: auto;
-  padding: 8px 24px 16px;
-  -webkit-overflow-scrolling: touch;
 }
 
-.ask-plan-results-scroll .result-section {
-  margin-top: 0;
+.ask-plan-result-table {
+  min-width: 860px;
 }
 
-.ask-plan-trailing-status {
-  flex-shrink: 0;
+.ask-plan-result-table th:first-child,
+.ask-plan-result-table td:first-child {
+  text-align: left;
+  min-width: 220px;
 }
 
-.ask-plan-trailing-status--after-history {
-  margin-top: 8px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
+.ask-plan-result-table th:nth-child(2),
+.ask-plan-result-table td:nth-child(2),
+.ask-plan-result-table th:nth-child(3),
+.ask-plan-result-table td:nth-child(3) {
+  text-align: left;
 }
 
-.ask-plan-trailing-status .ask-plan-loading {
-  padding-top: 8px;
-  padding-bottom: 8px;
-}
-
-.ask-plan-results-error {
-  margin: 8px 0 0;
-}
-
-.ask-plan-turn {
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--border);
-}
-
-.ask-plan-turn:last-child {
-  margin-bottom: 0;
-  padding-bottom: 0;
-  border-bottom: none;
-}
-
-.ask-plan-turn-question {
-  margin-bottom: 14px;
-}
-
-.ask-plan-turn-label {
-  display: block;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--text3);
-  margin-bottom: 6px;
-}
-
-.ask-plan-turn-text {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--text);
-  line-height: 1.45;
-  margin: 0;
-}
-
-.ask-plan-turn-answer .result-section-title {
-  margin-top: 0;
-}
-
-.ask-plan-no-rows {
-  font-size: 14px;
-  color: var(--text3);
-  margin: 8px 0 0;
-}
-
-.ask-plan-budget-wrap {
-  min-width: 0;
-  margin-top: 8px;
-}
-
-.ask-plan-budget-wrap .table-wrapper {
-  border-radius: var(--radius-lg);
-}
-
-.ask-plan-modal-footer {
-  flex-shrink: 0;
-  border-top: 1px solid var(--border);
-  background: var(--bg2);
-}
-
-.ask-plan-modal-footer .ai-provider-row {
-  border-bottom: 1px solid var(--border);
-}
-
-.ask-plan-modal-footer .quick-actions {
-  border-bottom: 1px solid var(--border);
-}
-
-.ask-plan-modal-footer .prompt-area {
-  border-bottom: none;
+.ask-plan-month-table {
+  margin: 8px 0;
 }
 
 /* ===== BUTTONS ===== */
