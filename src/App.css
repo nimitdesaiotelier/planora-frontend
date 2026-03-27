@@ -2169,6 +2169,88 @@ button.linkish:hover { color: var(--accent2); }
   box-sizing: border-box;
 }
 
+.create-plan-init-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.create-plan-init-toggle {
+  align-self: flex-start;
+}
+
+.create-plan-init-intro {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text3);
+}
+
+.create-plan-init-status {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text2);
+}
+
+.create-plan-init-fieldset {
+  margin: 0;
+  padding: 14px 14px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg3);
+}
+
+.create-plan-init-legend {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text2);
+  padding: 0 6px;
+}
+
+.create-plan-init-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text3);
+  font-weight: 400;
+}
+
+.create-plan-init-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.create-plan-init-option:last-of-type {
+  margin-bottom: 0;
+}
+
+.create-plan-init-option input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.create-plan-init-option input:disabled + span {
+  opacity: 0.45;
+}
+
+.create-plan-init-muted {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--text3);
+}
+
+.create-plan-init-detail {
+  margin: 12px 0 4px 28px;
+}
+
 .coa-type-select {
   width: 100%;
   margin-top: 2px;

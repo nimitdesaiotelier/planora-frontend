@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { fetchActualsYears } from "../api/actualsApi";
 import { createPlan, deletePlan, fetchPlans, fetchProperties } from "../api/plansApi";
 
 const PLAN_TYPE_STYLE = {
@@ -40,6 +41,16 @@ export default function PlansPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [pageAlert, setPageAlert] = useState(null); // { type, message }
   const [createAlert, setCreateAlert] = useState(null); // { type, message, existingPlanId? }
+  /** Plans for selected property — used to pick copy source in create modal */
+  const [createInitPlans, setCreateInitPlans] = useState([]);
+  /** none | last_year | from_year | from_actuals | from_plan — used when createInitEnabled */
+  const [initMode, setInitMode] = useState("none");
+  const [copySourceYear, setCopySourceYear] = useState("");
+  const [copySourcePlanId, setCopySourcePlanId] = useState("");
+  const [createInitEnabled, setCreateInitEnabled] = useState(false);
+  const [createInitLoading, setCreateInitLoading] = useState(false);
+  /** Distinct years with uploaded actuals for the selected property */
+  const [actualsYears, setActualsYears] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,6 +95,130 @@ export default function PlansPage() {
     }, 250);
     return () => clearInterval(id);
   }, [creating]);
+
+  useEffect(() => {
+    if (!createModalOpen || !createPropertyId || !createInitEnabled) {
+      setCreateInitLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setCreateInitLoading(true);
+    (async () => {
+      try {
+        const [plansData, yearsData] = await Promise.all([
+          fetchPlans(createPropertyId),
+          fetchActualsYears(createPropertyId, 1),
+        ]);
+        if (!cancelled) {
+          setCreateInitPlans(Array.isArray(plansData) ? plansData : []);
+          setActualsYears(Array.isArray(yearsData) ? yearsData : []);
+        }
+      } catch {
+        if (!cancelled) {
+          setCreateInitPlans([]);
+          setActualsYears([]);
+        }
+      } finally {
+        if (!cancelled) setCreateInitLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [createModalOpen, createPropertyId, createInitEnabled]);
+
+  const initPlansSameType = useMemo(() => {
+    if (!createPropertyId) return [];
+    return createInitPlans.filter(
+      (p) => String(p.propertyId) === String(createPropertyId) && p.planType === createType
+    );
+  }, [createInitPlans, createPropertyId, createType]);
+
+  const copyYearOptions = useMemo(() => {
+    const s = new Set();
+    const targetY = Number(createYear);
+    for (const p of initPlansSameType) {
+      const fy = p.fiscalYear != null ? Number(p.fiscalYear) : NaN;
+      if (Number.isFinite(fy) && fy !== targetY) {
+        s.add(fy);
+      }
+    }
+    return [...s].sort((a, b) => b - a);
+  }, [initPlansSameType, createYear]);
+
+  const hasLastYearPlan = useMemo(
+    () => initPlansSameType.some((p) => Number(p.fiscalYear) === Number(createYear) - 1),
+    [initPlansSameType, createYear]
+  );
+
+  const copyPlanOptions = useMemo(() => {
+    if (!createPropertyId) return [];
+    return createInitPlans.filter((p) => String(p.propertyId) === String(createPropertyId));
+  }, [createInitPlans, createPropertyId]);
+
+  const actualsYearOptions = useMemo(() => {
+    const list = actualsYears.map((y) => Number(y)).filter((n) => Number.isFinite(n));
+    return [...new Set(list)].sort((a, b) => b - a);
+  }, [actualsYears]);
+
+  const canCopyFromAnySource = useMemo(
+    () =>
+      hasLastYearPlan ||
+      copyYearOptions.length > 0 ||
+      copyPlanOptions.length > 0 ||
+      actualsYearOptions.length > 0,
+    [hasLastYearPlan, copyYearOptions.length, copyPlanOptions.length, actualsYearOptions.length]
+  );
+
+  useEffect(() => {
+    if (!createInitEnabled || createInitLoading || !canCopyFromAnySource || initMode !== "none") {
+      return;
+    }
+    if (hasLastYearPlan) {
+      setInitMode("last_year");
+    } else if (copyYearOptions.length > 0) {
+      setInitMode("from_year");
+      setCopySourceYear(String(copyYearOptions[0]));
+    } else if (copyPlanOptions.length > 0) {
+      setInitMode("from_plan");
+      setCopySourcePlanId(String(copyPlanOptions[0].id));
+    } else if (actualsYearOptions.length > 0) {
+      setInitMode("from_actuals");
+      setCopySourceYear(String(actualsYearOptions[0]));
+    }
+  }, [
+    createInitEnabled,
+    createInitLoading,
+    canCopyFromAnySource,
+    initMode,
+    hasLastYearPlan,
+    copyYearOptions,
+    copyPlanOptions,
+    actualsYearOptions,
+  ]);
+
+  useEffect(() => {
+    if (initMode !== "from_year") return;
+    if (copySourceYear === "") return;
+    if (!copyYearOptions.includes(Number(copySourceYear))) {
+      setCopySourceYear("");
+    }
+  }, [initMode, copyYearOptions, copySourceYear]);
+
+  useEffect(() => {
+    if (initMode !== "from_actuals") return;
+    if (copySourceYear === "") return;
+    if (!actualsYearOptions.includes(Number(copySourceYear))) {
+      setCopySourceYear("");
+    }
+  }, [initMode, actualsYearOptions, copySourceYear]);
+
+  useEffect(() => {
+    if (initMode !== "from_plan") return;
+    if (!copySourcePlanId) return;
+    const ok = copyPlanOptions.some((p) => String(p.id) === String(copySourcePlanId));
+    if (!ok) setCopySourcePlanId("");
+  }, [initMode, copyPlanOptions, copySourcePlanId]);
 
   async function reloadPlans() {
     const pid = propertyId === "" ? undefined : propertyId;
@@ -141,17 +276,47 @@ export default function PlansPage() {
   async function onCreatePlan(e) {
     e.preventDefault();
     if (!createPropertyId) return;
+    if (createInitEnabled) {
+      if (initMode === "from_year" && (copySourceYear === "" || copySourceYear == null)) {
+        setCreateError("Select a year to copy values from.");
+        return;
+      }
+      if (initMode === "from_plan" && !copySourcePlanId) {
+        setCreateError("Select a plan to copy values from.");
+        return;
+      }
+      if (initMode === "from_actuals" && (copySourceYear === "" || copySourceYear == null)) {
+        setCreateError("Select the actuals year to copy values from.");
+        return;
+      }
+    }
     setCreating(true);
     setCreateError(null);
     setCreateAlert(null);
     setCreateProgress(8);
     try {
-      const created = await createPlan({
+      const payload = {
         propertyId: Number(createPropertyId),
         fiscalYear: Number(createYear),
         planType: createType,
         organizationId: 1,
-      });
+        initMode: "NONE",
+      };
+      if (createInitEnabled) {
+        if (initMode === "last_year") {
+          payload.initMode = "LAST_YEAR";
+        } else if (initMode === "from_year") {
+          payload.initMode = "FROM_YEAR";
+          payload.sourceYear = Number(copySourceYear);
+        } else if (initMode === "from_plan") {
+          payload.initMode = "FROM_PLAN";
+          payload.sourcePlanId = Number(copySourcePlanId);
+        } else if (initMode === "from_actuals") {
+          payload.initMode = "FROM_ACTUALS";
+          payload.sourceYear = Number(copySourceYear);
+        }
+      }
+      const created = await createPlan(payload);
       setCreateProgress(100);
       await reloadPlans();
       setCreateAlert({
@@ -277,6 +442,11 @@ export default function PlansPage() {
             onClick={() => {
               setCreateAlert(null);
               setCreateError(null);
+              setCreateInitEnabled(false);
+              setInitMode("none");
+              setCopySourceYear("");
+              setCopySourcePlanId("");
+              setCreateInitPlans([]);
               setCreateModalOpen(true);
             }}
           >
@@ -406,7 +576,7 @@ export default function PlansPage() {
           <div className="modal-box api-key-modal create-plan-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Create plan</h2>
-              <p>Select property, fiscal year, and plan type.</p>
+              <p>Choose property, year, and type. Optionally copy month values from an existing plan.</p>
             </div>
             <form className="modal-body coa-form" onSubmit={onCreatePlan}>
               {createAlert && (
@@ -482,6 +652,186 @@ export default function PlansPage() {
                 </select>
               </label>
 
+              <div className="create-plan-init-section">
+                <label className="table-tools-toggle create-plan-init-toggle">
+                  <span className="table-tools-toggle-label">Initialize from an existing plan</span>
+                  <input
+                    type="checkbox"
+                    checked={createInitEnabled}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      setCreateInitEnabled(on);
+                      if (!on) {
+                        setInitMode("none");
+                        setCopySourceYear("");
+                        setCopySourcePlanId("");
+                        setCreateInitPlans([]);
+                        setActualsYears([]);
+                      }
+                    }}
+                    disabled={creating}
+                  />
+                  <span className="table-tools-switch" aria-hidden="true" />
+                </label>
+                <p className="create-plan-init-intro">
+                  With this off, the new plan starts with zero amounts. Turn it on to copy month values from another
+                  plan or from uploaded actuals (matched by account line / COA).
+                </p>
+
+                {createInitEnabled && (
+                  <fieldset className="create-plan-init-fieldset">
+                    <legend className="create-plan-init-legend">Copy from</legend>
+                    {createInitLoading && (
+                      <p className="create-plan-init-status" aria-live="polite">
+                        Loading plans…
+                      </p>
+                    )}
+                    {!createInitLoading && !canCopyFromAnySource && (
+                      <p className="create-plan-init-status create-plan-init-muted">
+                        No plans or actuals for this property to copy from. Add actuals under Actuals, create the plan
+                        with zero amounts, or pick another property.
+                      </p>
+                    )}
+                    {!createInitLoading && canCopyFromAnySource && (
+                      <>
+                <label className="create-plan-init-option">
+                  <input
+                    type="radio"
+                    name="initMode"
+                    value="last_year"
+                    checked={initMode === "last_year"}
+                    onChange={() => setInitMode("last_year")}
+                    disabled={creating || !hasLastYearPlan}
+                  />
+                  <span>
+                    Copy from previous year ({Number(createYear) - 1}, same property &amp; plan type)
+                    {!hasLastYearPlan && (
+                      <span className="create-plan-init-muted"> — no plan found for that year</span>
+                    )}
+                  </span>
+                </label>
+                <label className="create-plan-init-option">
+                  <input
+                    type="radio"
+                    name="initMode"
+                    value="from_year"
+                    checked={initMode === "from_year"}
+                    onChange={() => setInitMode("from_year")}
+                    disabled={creating || copyYearOptions.length === 0}
+                  />
+                  <span>
+                    Copy from a fiscal year (same property &amp; plan type)
+                    {copyYearOptions.length === 0 && (
+                      <span className="create-plan-init-muted"> — no other year available</span>
+                    )}
+                  </span>
+                </label>
+                {initMode === "from_year" && copyYearOptions.length > 0 && (
+                  <label className="coa-field create-plan-init-detail">
+                    Year to copy from
+                    <select
+                      className="provider-select"
+                      value={copySourceYear}
+                      onChange={(e) => setCopySourceYear(e.target.value)}
+                      required={initMode === "from_year"}
+                      disabled={creating}
+                    >
+                      <option value="">Select year…</option>
+                      {copyYearOptions.map((y) => (
+                        <option key={y} value={String(y)}>
+                          {y}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <label className="create-plan-init-option">
+                  <input
+                    type="radio"
+                    name="initMode"
+                    value="from_actuals"
+                    checked={initMode === "from_actuals"}
+                    onChange={() => {
+                      setInitMode("from_actuals");
+                      if (actualsYearOptions.length > 0) {
+                        const y = Number(copySourceYear);
+                        if (!actualsYearOptions.includes(y)) {
+                          setCopySourceYear(String(actualsYearOptions[0]));
+                        }
+                      }
+                    }}
+                    disabled={creating || actualsYearOptions.length === 0}
+                  />
+                  <span>
+                    Copy from actuals (uploaded data for a calendar year)
+                    {actualsYearOptions.length === 0 && (
+                      <span className="create-plan-init-muted"> — no actuals for this property</span>
+                    )}
+                  </span>
+                </label>
+                {initMode === "from_actuals" && actualsYearOptions.length > 0 && (
+                  <label className="coa-field create-plan-init-detail">
+                    Actuals year
+                    <select
+                      className="provider-select"
+                      value={copySourceYear}
+                      onChange={(e) => setCopySourceYear(e.target.value)}
+                      required={initMode === "from_actuals"}
+                      disabled={creating}
+                    >
+                      <option value="">Select year…</option>
+                      {actualsYearOptions.map((y) => (
+                        <option key={y} value={String(y)}>
+                          {y}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <label className="create-plan-init-option">
+                  <input
+                    type="radio"
+                    name="initMode"
+                    value="from_plan"
+                    checked={initMode === "from_plan"}
+                    onChange={() => setInitMode("from_plan")}
+                    disabled={creating || copyPlanOptions.length === 0}
+                  />
+                  <span>
+                    Copy from a specific plan
+                    {copyPlanOptions.length === 0 && (
+                      <span className="create-plan-init-muted"> — no plans for this property</span>
+                    )}
+                  </span>
+                </label>
+                {initMode === "from_plan" && copyPlanOptions.length > 0 && (
+                  <label className="coa-field create-plan-init-detail">
+                    Source plan
+                    <select
+                      className="provider-select"
+                      value={copySourcePlanId}
+                      onChange={(e) => setCopySourcePlanId(e.target.value)}
+                      required={initMode === "from_plan"}
+                      disabled={creating}
+                    >
+                      <option value="">Select plan…</option>
+                      {copyPlanOptions.map((p) => {
+                        const pt = PLAN_TYPE_STYLE[p.planType] || { label: p.planType };
+                        return (
+                          <option key={p.id} value={p.id}>
+                            {p.name} — {p.fiscalYear} ({pt.label})
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </label>
+                )}
+                      </>
+                    )}
+                  </fieldset>
+                )}
+              </div>
+
               {creating && (
                 <div className="create-progress-wrap" aria-live="polite">
                   <div className="create-progress-label">Creating plan... {createProgress}%</div>
@@ -500,7 +850,22 @@ export default function PlansPage() {
                 >
                   Cancel
                 </button>
-                <button className="btn-primary" type="submit" disabled={creating || !createPropertyId}>
+                <button
+                  className="btn-primary"
+                  type="submit"
+                  disabled={
+                    creating ||
+                    !createPropertyId ||
+                    (createInitEnabled &&
+                      (createInitLoading ||
+                        !canCopyFromAnySource ||
+                        initMode === "none" ||
+                        (initMode === "from_year" && !copySourceYear) ||
+                        (initMode === "from_actuals" && !copySourceYear) ||
+                        (initMode === "from_plan" && !copySourcePlanId) ||
+                        (initMode === "last_year" && !hasLastYearPlan)))
+                  }
+                >
                   {creating ? "Creating..." : "Create"}
                 </button>
               </div>
