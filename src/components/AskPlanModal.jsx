@@ -1,6 +1,8 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { analyzeAskPlanResult, askPlan, exportAskPlanExcel } from "../api/askPlanApi";
 import { MONTHS } from "../data/budgetData";
+import AskPlanChartView from "./AskPlanChartView";
+import { buildAskPlanLineBarSeries, buildAskPlanPieData } from "./askPlanChartData";
 
 const QUICK_PROMPTS = [
   "Show top 5 Revenue and Expense line items",
@@ -65,6 +67,8 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
   const [analysisError, setAnalysisError] = useState("");
   const [expandedLineKeys, setExpandedLineKeys] = useState({});
   const [showIntentJson, setShowIntentJson] = useState(false);
+  /** When API requests a chart, user can switch between chart and table */
+  const [resultView, setResultView] = useState("chart");
 
   const titlePlanName = planScope?.planName?.trim() || "Plan";
   const titleFy =
@@ -133,6 +137,31 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
     [groupedRows]
   );
 
+  const chartTypeNormalized = String(response?.meta?.chartType || "").toLowerCase();
+  const chartOn = Boolean(response?.meta?.isChart);
+  const chartTypeSupported = ["bar", "line", "pie"].includes(chartTypeNormalized);
+
+  const showChart = useMemo(() => {
+    if (!response || !hasRows || !chartOn || !chartTypeSupported) return false;
+    if (chartTypeNormalized === "pie") {
+      return buildAskPlanPieData(response.resultRows).hasNumeric;
+    }
+    return buildAskPlanLineBarSeries(response.resultRows, showCompare, showActuals).hasNumeric;
+  }, [
+    response,
+    hasRows,
+    chartOn,
+    chartTypeSupported,
+    chartTypeNormalized,
+    showCompare,
+    showActuals,
+  ]);
+
+  useEffect(() => {
+    if (!response) return;
+    setResultView(showChart ? "chart" : "table");
+  }, [response, showChart]);
+
   function toggleExpanded(lineKey) {
     setExpandedLineKeys((prev) => ({ ...prev, [lineKey]: !prev[lineKey] }));
   }
@@ -181,7 +210,7 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
   }
 
   return (
-    <div className="modal-overlay">
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-box ai-modal ask-plan-modal">
         <div className="ask-plan-shell">
           <div className="ask-plan-top">
@@ -283,6 +312,25 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
                     </div>
                   )}
 
+                  {showChart && (
+                    <div className="ask-plan-view-toggle" role="group" aria-label="Result display">
+                      <button
+                        type="button"
+                        className={`ask-plan-view-toggle-btn ${resultView === "chart" ? "is-active" : ""}`}
+                        onClick={() => setResultView("chart")}
+                      >
+                        Chart view
+                      </button>
+                      <button
+                        type="button"
+                        className={`ask-plan-view-toggle-btn ${resultView === "table" ? "is-active" : ""}`}
+                        onClick={() => setResultView("table")}
+                      >
+                        Table view
+                      </button>
+                    </div>
+                  )}
+
                   <div className="ask-plan-intent-block">
                     <button
                       className="btn-secondary ask-plan-intent-toggle"
@@ -294,53 +342,62 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
                     {showIntentJson && <pre className="json-output">{parsedIntentJson || "{}"}</pre>}
                   </div>
 
-                  <div className="month-table-wrapper ask-plan-result-table-wrap">
-                    <table className="month-table ask-plan-result-table">
-                      <thead>
-                        <tr>
-                          <th>Department</th>
-                          <th>COA code</th>
-                          <th>COA name</th>
-                          <th>Account Type</th>
-                          <th>Category</th>
-                          <th>Base Total</th>
-                          {showCompare && <th>Compare Total</th>}
-                          {showCompare && <th>Delta Vs Compare</th>}
-                          {showActuals && <th>Actual Total</th>}
-                          {showActuals && <th>Delta Vs Actual</th>}
-                          <th>Months</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {!hasRows && (
+                  {showChart && resultView === "chart" ? (
+                    <AskPlanChartView
+                      chartType={chartTypeNormalized}
+                      resultRows={response.resultRows}
+                      showCompare={showCompare}
+                      showActuals={showActuals}
+                    />
+                  ) : (
+                    <div className="month-table-wrapper ask-plan-result-table-wrap">
+                      <table className="month-table ask-plan-result-table">
+                        <thead>
                           <tr>
-                            <td colSpan={tableColSpan}>No rows returned.</td>
+                            <th>Department</th>
+                            <th>COA code</th>
+                            <th>COA name</th>
+                            <th>Account Type</th>
+                            <th>Category</th>
+                            <th>Base Total</th>
+                            {showCompare && <th>Compare Total</th>}
+                            {showCompare && <th>Delta Vs Compare</th>}
+                            {showActuals && <th>Actual Total</th>}
+                            {showActuals && <th>Delta Vs Actual</th>}
+                            <th>Months</th>
                           </tr>
-                        )}
-                        {hasRows &&
-                          visibleSections.map((section) => (
-                            <Fragment key={section.key}>
-                              <tr className="ask-plan-group-row">
-                                <td colSpan={tableColSpan}>{section.title}</td>
-                              </tr>
-                              {section.rows.map((r) => {
-                                const isExpanded = Boolean(expandedLineKeys[r.lineKey]);
-                                return (
-                                  <FragmentRow
-                                    key={r.lineKey}
-                                    row={r}
-                                    isExpanded={isExpanded}
-                                    onToggle={() => toggleExpanded(r.lineKey)}
-                                    showCompare={showCompare}
-                                    showActuals={showActuals}
-                                  />
-                                );
-                              })}
-                            </Fragment>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {!hasRows && (
+                            <tr>
+                              <td colSpan={tableColSpan}>No rows returned.</td>
+                            </tr>
+                          )}
+                          {hasRows &&
+                            visibleSections.map((section) => (
+                              <Fragment key={section.key}>
+                                <tr className="ask-plan-group-row">
+                                  <td colSpan={tableColSpan}>{section.title}</td>
+                                </tr>
+                                {section.rows.map((r) => {
+                                  const isExpanded = Boolean(expandedLineKeys[r.lineKey]);
+                                  return (
+                                    <FragmentRow
+                                      key={r.lineKey}
+                                      row={r}
+                                      isExpanded={isExpanded}
+                                      onToggle={() => toggleExpanded(r.lineKey)}
+                                      showCompare={showCompare}
+                                      showActuals={showActuals}
+                                    />
+                                  );
+                                })}
+                              </Fragment>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
                   {showAnalysisSection && (
                     <div className="ask-plan-analysis-block">
