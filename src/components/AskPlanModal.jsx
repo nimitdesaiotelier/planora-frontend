@@ -6,9 +6,9 @@ import { buildAskPlanLineBarSeries, buildAskPlanPieData } from "./askPlanChartDa
 
 const QUICK_PROMPTS = [
   "Show top 5 Revenue and Expense line items",
-  "Compare with Actuals 2024",
-  "What is room Revenue in Actual 2024",
-  "Compare Statistics items with Budget 2025",
+  "Compare with Actuals 2026",
+  "Compare Rooms Department Revenue with Actuals 2026",
+  "Compare Statistics items with Budget 2026",
 ];
 
 const FAILSAFE_PROMPTS = [
@@ -23,6 +23,25 @@ const RESULT_SECTIONS = [
   { key: "revenue", title: "Revenue" },
   { key: "expense", title: "Expenses" },
 ];
+
+const DEPARTMENT_ORDER = [
+  "rooms",
+  "food",
+  "beverages",
+  "food and beverages",
+  "f&b",
+  "f& b",
+  "other operated department",
+  "administrative and general",
+  "non-operating",
+];
+
+function departmentSortKey(dept) {
+  const normalized = String(dept || "").trim().toLowerCase();
+  if (normalized.startsWith("utilities")) return DEPARTMENT_ORDER.length + 1;
+  const idx = DEPARTMENT_ORDER.findIndex((d) => normalized.startsWith(d));
+  return idx >= 0 ? idx : DEPARTMENT_ORDER.length;
+}
 
 function formatAmount(value) {
   if (value == null || Number.isNaN(Number(value))) return "—";
@@ -192,9 +211,16 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
       else otherRows.push(row);
     });
 
-    const sections = RESULT_SECTIONS.map((s) => ({ ...s, rows: byType[s.key] }));
+    const sortByDept = (rows) =>
+      [...rows].sort((a, b) => {
+        const order = departmentSortKey(a.department) - departmentSortKey(b.department);
+        if (order !== 0) return order;
+        return String(a.department || "").localeCompare(String(b.department || ""));
+      });
+
+    const sections = RESULT_SECTIONS.map((s) => ({ ...s, rows: sortByDept(byType[s.key]) }));
     if (otherRows.length > 0) {
-      sections.push({ key: "__other__", title: null, rows: otherRows });
+      sections.push({ key: "__other__", title: null, rows: sortByDept(otherRows) });
     }
     return sections;
   }, [hasRows, response]);
