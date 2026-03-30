@@ -503,13 +503,12 @@ body {
   color: var(--text3) !important;
 }
 
+/* Do not use display:flex on td — it overrides table-cell and breaks row height / alignment. */
 .label-cell {
   text-align: left !important;
   font-weight: 500;
   color: var(--text) !important;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  vertical-align: middle;
 }
 
 .updated-dot {
