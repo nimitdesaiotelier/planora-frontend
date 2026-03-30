@@ -135,7 +135,7 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
   const tableColSpan = (showCompare ? 9 : 7) + (showActuals ? 2 : 0);
 
   const showAnalysisSection =
-    hasRows && (analysisLoading || analysisError || (analysisPoints != null && analysisPoints.length > 0));
+    hasRows && (analysisLoading || analysisError || analysisPoints !== null);
 
   const canRun = useMemo(() => question.trim().length > 0, [question]);
   const responseMessage = useMemo(
@@ -208,6 +208,32 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
     setResultView(showChart ? "chart" : "table");
   }, [response, showChart]);
 
+  /** After ask-plan returns rows, fetch AI analysis automatically (no manual Analyse button). */
+  useEffect(() => {
+    if (!response || !hasRows || loading) return;
+    let cancelled = false;
+    const q = submittedQuestion.trim() || "(no question)";
+    setAnalysisLoading(true);
+    setAnalysisError("");
+    setAnalysisPoints(null);
+    (async () => {
+      try {
+        const data = await analyzeAskPlanResult({ provider, question: q, response });
+        if (cancelled) return;
+        setAnalysisPoints(Array.isArray(data?.points) ? data.points : []);
+      } catch (err) {
+        if (cancelled) return;
+        setAnalysisError(err.message || "Analysis failed.");
+        setAnalysisPoints(null);
+      } finally {
+        if (!cancelled) setAnalysisLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [response, hasRows, loading, provider, submittedQuestion]);
+
   function toggleExpanded(lineKey) {
     setExpandedLineKeys((prev) => ({ ...prev, [lineKey]: !prev[lineKey] }));
   }
@@ -236,22 +262,6 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
       setError(err.message || "Ask plan failed.");
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function runAnalysis() {
-    if (!response || !hasRows) return;
-    const q = submittedQuestion.trim() || "(no question)";
-    setAnalysisLoading(true);
-    setAnalysisError("");
-    setAnalysisPoints(null);
-    try {
-      const data = await analyzeAskPlanResult({ provider, question: q, response });
-      setAnalysisPoints(Array.isArray(data?.points) ? data.points : []);
-    } catch (err) {
-      setAnalysisError(err.message || "Analysis failed.");
-    } finally {
-      setAnalysisLoading(false);
     }
   }
 
@@ -306,21 +316,14 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
                     {hasRows && (
                       <div className="ask-plan-export-actions">
                         <button
-                          className="btn-secondary ask-plan-export-btn"
+                          className="btn-secondary ask-plan-export-btn ask-plan-export-btn-icon"
                           type="button"
-                          onClick={() => runAnalysis()}
-                          disabled={loading || analysisLoading}
-                        >
-                          {analysisLoading ? <span className="spinner" /> : "Analyse"}
-                        </button>
-                        <button
-                          className="btn-secondary ask-plan-export-btn"
-                          type="button"
+                          title="Download Excel"
+                          aria-label="Download Excel"
                           onClick={async () => {
                             setError("");
                             try {
                               await exportAskPlanExcel(response, {
-                                includeChart: false,
                                 analysisPoints: analysisPoints?.length ? analysisPoints : undefined,
                               });
                             } catch (err) {
@@ -328,24 +331,22 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
                             }
                           }}
                         >
-                          Excel
-                        </button>
-                        <button
-                          className="btn-secondary ask-plan-export-btn"
-                          type="button"
-                          onClick={async () => {
-                            setError("");
-                            try {
-                              await exportAskPlanExcel(response, {
-                                includeChart: true,
-                                analysisPoints: analysisPoints?.length ? analysisPoints : undefined,
-                              });
-                            } catch (err) {
-                              setError(err.message || "Excel export failed.");
-                            }
-                          }}
-                        >
-                          Excel + chart
+                          <svg
+                            className="ask-plan-download-icon"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                          >
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                          </svg>
                         </button>
                       </div>
                     )}
@@ -479,12 +480,18 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
                       {analysisError && !analysisLoading && (
                         <div className="warning-banner ask-plan-analysis-error">⚠️ {analysisError}</div>
                       )}
-                      {!analysisLoading && !analysisError && analysisPoints && analysisPoints.length > 0 && (
-                        <ul className="ask-plan-analysis-points">
-                          {analysisPoints.map((p, i) => (
-                            <li key={`${i}-${p.slice(0, 24)}`}>{p}</li>
-                          ))}
-                        </ul>
+                      {!analysisLoading &&
+                        !analysisError &&
+                        analysisPoints &&
+                        analysisPoints.length > 0 && (
+                          <ul className="ask-plan-analysis-points">
+                            {analysisPoints.map((p, i) => (
+                              <li key={`${i}-${p.slice(0, 24)}`}>{p}</li>
+                            ))}
+                          </ul>
+                        )}
+                      {!analysisLoading && !analysisError && analysisPoints && analysisPoints.length === 0 && (
+                        <p className="ask-plan-analysis-empty">No summary points returned.</p>
                       )}
                     </div>
                   )}

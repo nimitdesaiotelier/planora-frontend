@@ -131,11 +131,10 @@ export async function analyzeAskPlanResult({ provider, question, response }) {
 /**
  * POSTs the ask-plan JSON; the server builds title rows from {@code meta.basePlanId} and the plan record.
  * @param {object} [options]
- * @param {boolean} [options.includeChart] - when true, workbook includes a monthly line chart
- * @param {string[]} [options.analysisPoints] - optional AI bullets (same as UI); written after chart if any, else after table
+ * @param {string[]} [options.analysisPoints] - optional AI bullets (same as UI); written below the data table
  */
 export async function exportAskPlanExcel(response, options = {}) {
-  const body = { response, includeChart: Boolean(options.includeChart) };
+  const body = { response };
   if (Array.isArray(options.analysisPoints) && options.analysisPoints.length > 0) {
     body.analysisPoints = options.analysisPoints.map((p) => String(p).trim()).filter(Boolean);
   }
