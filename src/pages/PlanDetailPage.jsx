@@ -114,7 +114,7 @@ export default function PlanDetailPage() {
             aria-label="Open AI actions for this plan"
             onClick={() => setAiModal({ kind: "plan" })}
           >
-            ✨
+            ✨ Ask Plan
           </button>
         </div>
       </div>
