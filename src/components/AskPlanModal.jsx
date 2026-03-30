@@ -35,7 +35,7 @@ function formatDelta(value) {
   return `${numeric > 0 ? "+" : ""}${formatAmount(numeric)}`;
 }
 
-function MonthValuesTable({ baseValues, compareValues, actualValues, showCompare, showActuals }) {
+function MonthValuesTable({ baseValues, compareValues, actualValues, showCompare, showActuals, labels }) {
   const deltaClass = (val) =>
     val > 0 ? "pos-delta" : val < 0 ? "neg-delta" : "";
 
@@ -52,7 +52,7 @@ function MonthValuesTable({ baseValues, compareValues, actualValues, showCompare
         </thead>
         <tbody>
           <tr>
-            <td><strong>Base</strong></td>
+            <td><strong>{labels.base}</strong></td>
             {MONTHS.map((m) => (
               <td key={m}>{formatAmount(baseValues?.[m])}</td>
             ))}
@@ -60,15 +60,15 @@ function MonthValuesTable({ baseValues, compareValues, actualValues, showCompare
           {showCompare && (
             <>
               <tr>
-                <td><strong>Compare</strong></td>
+                <td><strong>{labels.compare}</strong></td>
                 {MONTHS.map((m) => (
                   <td key={m}>{formatAmount(compareValues?.[m])}</td>
                 ))}
               </tr>
               <tr>
-                <td><strong>Delta</strong></td>
+                <td><strong>{labels.deltaCompare}</strong></td>
                 {MONTHS.map((m) => {
-                  const d = (Number(compareValues?.[m]) || 0) - (Number(baseValues?.[m]) || 0);
+                  const d = (Number(baseValues?.[m]) || 0) - (Number(compareValues?.[m]) || 0);
                   return (
                     <td key={m} className={deltaClass(d)}>{formatDelta(d)}</td>
                   );
@@ -79,13 +79,13 @@ function MonthValuesTable({ baseValues, compareValues, actualValues, showCompare
           {showActuals && (
             <>
               <tr>
-                <td><strong>Actual</strong></td>
+                <td><strong>{labels.actual}</strong></td>
                 {MONTHS.map((m) => (
                   <td key={m}>{formatAmount(actualValues?.[m])}</td>
                 ))}
               </tr>
               <tr>
-                <td><strong>Delta</strong></td>
+                <td><strong>{labels.deltaActual}</strong></td>
                 {MONTHS.map((m) => {
                   const d = (Number(actualValues?.[m]) || 0) - (Number(baseValues?.[m]) || 0);
                   return (
@@ -123,8 +123,22 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
       : null;
 
   const compareMode = response?.appliedFilters?.compareMode || "none";
-  const showCompare = compareMode === "plan";
+  const groupBy = response?.meta?.groupBy || response?.appliedFilters?.groupBy || "";
+  const isProfitView = groupBy === "profit";
+  const showCompare = compareMode === "plan" || isProfitView;
   const showActuals = compareMode === "actuals" || Boolean(response?.appliedFilters?.includeActuals);
+  const labels = {
+    base: isProfitView ? "Revenue" : "Base",
+    baseTotal: isProfitView ? "Revenue Total" : "Base Total",
+    compare: isProfitView ? "Expense" : "Compare",
+    compareTotal: isProfitView ? "Expense Total" : "Compare Total",
+    deltaCompare: isProfitView ? "Profit" : "Delta",
+    deltaCompareTotal: isProfitView ? "Profit" : "Delta Vs Compare",
+    actual: "Actual",
+    actualTotal: "Actual Total",
+    deltaActual: "Delta",
+    deltaActualTotal: "Delta Vs Actual",
+  };
 
   const hasRows = Array.isArray(response?.resultRows) && response.resultRows.length > 0;
   const showNoDataInfo = Boolean(response) && !hasRows;
@@ -132,7 +146,7 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
     () => (Array.isArray(response?.meta?.suggestedPlans) ? response.meta.suggestedPlans : []),
     [response]
   );
-  const tableColSpan = (showCompare ? 9 : 7) + (showActuals ? 2 : 0);
+  const tableColSpan = (showCompare ? 8 : 6) + (showActuals ? 2 : 0);
 
   const showAnalysisSection =
     hasRows && (analysisLoading || analysisError || analysisPoints !== null);
@@ -434,12 +448,11 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
                             <th>COA code</th>
                             <th>COA name</th>
                             <th>Account Type</th>
-                            <th>Category</th>
-                            <th>Base Total</th>
-                            {showCompare && <th>Compare Total</th>}
-                            {showCompare && <th>Delta Vs Compare</th>}
-                            {showActuals && <th>Actual Total</th>}
-                            {showActuals && <th>Delta Vs Actual</th>}
+                            <th>{labels.baseTotal}</th>
+                            {showCompare && <th>{labels.compareTotal}</th>}
+                            {showCompare && <th>{labels.deltaCompareTotal}</th>}
+                            {showActuals && <th>{labels.actualTotal}</th>}
+                            {showActuals && <th>{labels.deltaActualTotal}</th>}
                             <th>Months</th>
                           </tr>
                         </thead>
@@ -467,6 +480,7 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
                                       onToggle={() => toggleExpanded(r.lineKey)}
                                       showCompare={showCompare}
                                       showActuals={showActuals}
+                                      labels={labels}
                                     />
                                   );
                                 })}
@@ -562,8 +576,8 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
   );
 }
 
-function FragmentRow({ row, isExpanded, onToggle, showCompare, showActuals }) {
-  const columns = (showCompare ? 9 : 7) + (showActuals ? 2 : 0);
+function FragmentRow({ row, isExpanded, onToggle, showCompare, showActuals, labels }) {
+  const columns = (showCompare ? 8 : 6) + (showActuals ? 2 : 0);
   const accountType = row.accountType ?? row.type ?? "";
   const coaCode = row.coaCode ?? "—";
   const coaName = row.coaName ?? "—";
@@ -576,7 +590,6 @@ function FragmentRow({ row, isExpanded, onToggle, showCompare, showActuals }) {
         <td>{coaCode}</td>
         <td>{coaName}</td>
         <td>{accountType}</td>
-        <td>{row.category}</td>
         <td>{formatAmount(row.baseTotal)}</td>
         {showCompare && <td>{formatAmount(row.compareTotal)}</td>}
         {showCompare && <td className={Number(row.deltaVsCompare) > 0 ? "pos-delta" : Number(row.deltaVsCompare) < 0 ? "neg-delta" : ""}>{formatDelta(row.deltaVsCompare)}</td>}
@@ -597,6 +610,7 @@ function FragmentRow({ row, isExpanded, onToggle, showCompare, showActuals }) {
               actualValues={row.actualValues}
               showCompare={showCompare}
               showActuals={showActuals}
+              labels={labels}
             />
           </td>
         </tr>
