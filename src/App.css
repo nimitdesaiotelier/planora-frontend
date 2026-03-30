@@ -241,8 +241,47 @@ body {
 .plan-header-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   flex-shrink: 0;
   padding-top: 2px;
+}
+
+.ai-btn.ai-btn-header {
+  width: auto;
+  min-width: 0;
+  height: auto;
+  min-height: 36px;
+  padding: 8px 14px;
+  gap: 10px;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ai-btn.ai-btn-header:hover {
+  transform: none;
+  /* Avoid strong accent-glow fill behind transparent PNG (see .ai-btn:hover) */
+  background: var(--hover-bg);
+  box-shadow: none;
+}
+
+.ai-btn-header-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display: block;
+  background: none;
+}
+
+.ai-btn-header-label {
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .plan-filter-row {
