@@ -348,7 +348,7 @@ body {
   align-items: center;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
-  background: rgba(30, 37, 53, 0.45);
+  background: var(--bg3);
 }
 
 .table-tools-toggle {
