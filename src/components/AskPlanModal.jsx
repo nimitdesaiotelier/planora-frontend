@@ -36,26 +36,65 @@ function formatDelta(value) {
 }
 
 function MonthValuesTable({ baseValues, compareValues, actualValues, showCompare, showActuals }) {
+  const deltaClass = (val) =>
+    val > 0 ? "pos-delta" : val < 0 ? "neg-delta" : "";
+
   return (
     <div className="month-table-wrapper ask-plan-month-table">
       <table className="month-table">
         <thead>
           <tr>
-            <th>Month</th>
-            <th>Base</th>
-            {showCompare && <th>Compare</th>}
-            {showActuals && <th>Actual</th>}
+            <th></th>
+            {MONTHS.map((m) => (
+              <th key={m}>{m}</th>
+            ))}
           </tr>
         </thead>
         <tbody>
-          {MONTHS.map((m) => (
-            <tr key={m}>
-              <td>{m}</td>
-              <td>{formatAmount(baseValues?.[m])}</td>
-              {showCompare && <td>{formatAmount(compareValues?.[m])}</td>}
-              {showActuals && <td>{formatAmount(actualValues?.[m])}</td>}
-            </tr>
-          ))}
+          <tr>
+            <td><strong>Base</strong></td>
+            {MONTHS.map((m) => (
+              <td key={m}>{formatAmount(baseValues?.[m])}</td>
+            ))}
+          </tr>
+          {showCompare && (
+            <>
+              <tr>
+                <td><strong>Compare</strong></td>
+                {MONTHS.map((m) => (
+                  <td key={m}>{formatAmount(compareValues?.[m])}</td>
+                ))}
+              </tr>
+              <tr>
+                <td><strong>Delta</strong></td>
+                {MONTHS.map((m) => {
+                  const d = (Number(compareValues?.[m]) || 0) - (Number(baseValues?.[m]) || 0);
+                  return (
+                    <td key={m} className={deltaClass(d)}>{formatDelta(d)}</td>
+                  );
+                })}
+              </tr>
+            </>
+          )}
+          {showActuals && (
+            <>
+              <tr>
+                <td><strong>Actual</strong></td>
+                {MONTHS.map((m) => (
+                  <td key={m}>{formatAmount(actualValues?.[m])}</td>
+                ))}
+              </tr>
+              <tr>
+                <td><strong>Delta</strong></td>
+                {MONTHS.map((m) => {
+                  const d = (Number(actualValues?.[m]) || 0) - (Number(baseValues?.[m]) || 0);
+                  return (
+                    <td key={m} className={deltaClass(d)}>{formatDelta(d)}</td>
+                  );
+                })}
+              </tr>
+            </>
+          )}
         </tbody>
       </table>
     </div>
