@@ -189,14 +189,14 @@ export default function CoaPage() {
         thClassName: "coa-actions-col",
         tdClassName: "coa-actions-cell",
         renderCell: (r) => (
-          <>
-            <button type="button" className="btn-link" onClick={() => openEdit(r)}>
+          <div className="coa-actions-row-btns">
+            <button type="button" className="btn-primary coa-row-action-btn" onClick={() => openEdit(r)}>
               Edit
             </button>
-            <button type="button" className="btn-link btn-link-danger" onClick={() => onDelete(r)}>
+            <button type="button" className="btn-danger coa-row-action-btn" onClick={() => onDelete(r)}>
               Delete
             </button>
-          </>
+          </div>
         ),
       },
     ],
@@ -282,7 +282,7 @@ export default function CoaPage() {
       <div className="plan-header">
         <div className="plan-info">
           <h1>Chart of accounts</h1>
-          <span className="plan-badge">tbl_coa</span>
+          {/* <span className="plan-badge">tbl_coa</span> */}
         </div>
         <div className="plan-filter-row actuals-toolbar coa-toolbar">
           <label>
