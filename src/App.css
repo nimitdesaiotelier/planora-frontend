@@ -1252,6 +1252,28 @@ input[type="number"] {
   flex-shrink: 0;
 }
 
+.ask-plan-export-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  min-width: 38px;
+}
+
+.ask-plan-download-icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+.ask-plan-analysis-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text3);
+  padding: 4px 0 0;
+}
+
 .ask-plan-analysis-block {
   margin-top: 16px;
 }
