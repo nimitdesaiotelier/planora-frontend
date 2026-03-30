@@ -382,7 +382,7 @@ export default function PlansPage() {
         <div className="plan-header-left">
           <div className="plan-info">
             <h1>All plans</h1>
-            <span className="plan-badge">Live data</span>
+            {/* <span className="plan-badge">Live data</span> */}
           </div>
           <div className="plan-header-filters">
             <div className="plan-filter-field">

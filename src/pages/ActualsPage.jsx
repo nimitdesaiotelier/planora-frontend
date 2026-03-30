@@ -205,7 +205,7 @@ export default function ActualsPage() {
       <div className="plan-header">
         <div className="plan-info">
           <h1>Actuals</h1>
-          <span className="plan-badge">tbl_actuals_details</span>
+          {/* <span className="plan-badge">tbl_actuals_details</span> */}
         </div>
         <div className="plan-filter-row actuals-toolbar">
           <label>
