@@ -387,7 +387,7 @@ body {
   align-items: center;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
-  background: rgba(30, 37, 53, 0.45);
+  background: var(--bg3);
 }
 
 .table-tools-toggle {
@@ -1353,6 +1353,14 @@ input[type="number"] {
 .ask-plan-download-icon {
   display: block;
   flex-shrink: 0;
+}
+
+.ask-plan-export-spinner {
+  width: 18px;
+  height: 18px;
+  border-color: rgba(148, 163, 184, 0.35);
+  border-top-color: var(--accent2);
+  vertical-align: middle;
 }
 
 .ask-plan-analysis-empty {
