@@ -1316,6 +1316,14 @@ input[type="number"] {
   flex-shrink: 0;
 }
 
+.ask-plan-export-spinner {
+  width: 18px;
+  height: 18px;
+  border-color: rgba(148, 163, 184, 0.35);
+  border-top-color: var(--accent2);
+  vertical-align: middle;
+}
+
 .ask-plan-analysis-empty {
   margin: 0;
   font-size: 13px;
