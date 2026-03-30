@@ -111,10 +111,18 @@ export default function PlanDetailPage() {
             type="button"
             className="ai-btn ai-btn-header"
             title="Plan-level Ask AI"
-            aria-label="Open AI actions for this plan"
+            aria-label="Open Ask Plan for this plan"
             onClick={() => setAiModal({ kind: "plan" })}
           >
-            ✨ Ask Plan
+            <img
+              className="ai-btn-header-icon"
+              src="/assets/askplan.png"
+              alt=""
+              width={22}
+              height={22}
+              decoding="async"
+            />
+            <span className="ai-btn-header-label">Ask Plan</span>
           </button>
         </div>
       </div>
