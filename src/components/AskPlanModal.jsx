@@ -170,13 +170,19 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
       revenue: [],
       expense: [],
     };
+    const otherRows = [];
 
     response.resultRows.forEach((row) => {
       const key = normalizeType(row.type);
       if (key) byType[key].push(row);
+      else otherRows.push(row);
     });
 
-    return RESULT_SECTIONS.map((s) => ({ ...s, rows: byType[s.key] }));
+    const sections = RESULT_SECTIONS.map((s) => ({ ...s, rows: byType[s.key] }));
+    if (otherRows.length > 0) {
+      sections.push({ key: "__other__", title: null, rows: otherRows });
+    }
+    return sections;
   }, [hasRows, response]);
   const visibleSections = useMemo(
     () => groupedRows.filter((section) => section.rows.length > 0),
@@ -446,9 +452,11 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
                           {hasRows &&
                             visibleSections.map((section) => (
                               <Fragment key={section.key}>
-                                <tr className="ask-plan-group-row">
-                                  <td colSpan={tableColSpan}>{section.title}</td>
-                                </tr>
+                                {section.title && (
+                                  <tr className="ask-plan-group-row">
+                                    <td colSpan={tableColSpan}>{section.title}</td>
+                                  </tr>
+                                )}
                                 {section.rows.map((r) => {
                                   const isExpanded = Boolean(expandedLineKeys[r.lineKey]);
                                   return (
@@ -557,8 +565,8 @@ export default function AskPlanModal({ planId, planScope, onClose }) {
 function FragmentRow({ row, isExpanded, onToggle, showCompare, showActuals }) {
   const columns = (showCompare ? 9 : 7) + (showActuals ? 2 : 0);
   const accountType = row.accountType ?? row.type ?? "";
-  const coaCode = row.coaCode ?? row.lineKey ?? "—";
-  const coaName = row.coaName ?? row.label ?? "—";
+  const coaCode = row.coaCode ?? "—";
+  const coaName = row.coaName ?? "—";
   const department = row.department ?? "—";
 
   return (
