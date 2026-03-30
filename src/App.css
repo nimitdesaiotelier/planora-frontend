@@ -1580,6 +1580,10 @@ input[type="number"] {
   margin: 8px 0;
 }
 
+.ask-plan-month-table .month-table {
+  table-layout: fixed;
+}
+
 @media (max-width: 980px) {
   .ask-plan-modal {
     width: calc(100vw - 20px);
