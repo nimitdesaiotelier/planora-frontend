@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "../../../tpx-frontend-web"
+		},
+		{
+			"path": "../../../tpx-backend-services"
+		},
+		{
+			"path": "../.."
+		}
+	],
+	"settings": {}
+}
